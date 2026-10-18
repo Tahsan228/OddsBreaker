@@ -9,14 +9,14 @@ on:
 jobs:
   linux:
     name: Tests (Linux, Python ${{ matrix.python }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         python: ["3.9", "3.12"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
       - name: Install test tools
@@ -28,28 +28,42 @@ jobs:
       - name: Lint
         run: python -m pyflakes oddsbreaker tests packaging tools OddsBreaker.pyw
       - name: Tests (with a virtual screen)
-        run: xvfb-run -a -s "-screen 0 1600x1000x24" python -m pytest -q
+        run: xvfb-run -a -s "-screen 0 1600x1000x24" python -m pytest -q -rfE --junitxml=junit.xml
+      - name: Show failures
+        if: failure()
+        run: python tools/ci_annotate.py junit.xml
 
   windows:
     name: Tests (Windows)
     runs-on: windows-latest
+    env:
+      PYTHONIOENCODING: utf-8
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Install test tools
         run: pip install pytest pillow
       - name: Tests
-        run: python -m pytest -q
+        run: python -m pytest -q -rfE --junitxml=junit.xml
       - name: Self-test from source
+        if: ${{ !cancelled() }}
         shell: pwsh
         run: |
-          $p = Start-Process python -ArgumentList "-m","oddsbreaker","--selftest","selftest-source" -Wait -PassThru -NoNewWindow
+          python -m oddsbreaker --selftest selftest-source
+          $code = $LASTEXITCODE
           Get-Content selftest-source/selftest.txt
-          if ($p.ExitCode -ne 0) { exit 1 }
-      - uses: actions/upload-artifact@v4
+          exit $code
+      - name: Show failures
+        if: failure()
+        shell: pwsh
+        run: |
+          if (Test-Path junit.xml) { python tools/ci_annotate.py junit.xml }
+          if (Test-Path selftest-source/selftest.txt) { python tools/ci_annotate.py --tail selftest-source/selftest.txt "Self-test" }
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: selftest-screens-windows
           path: selftest-source
+          if-no-files-found: ignore
