@@ -1,0 +1,6 @@
+# OddsBreaker itself needs nothing but Python 3.8+ (with tkinter).
+# These are only for testing and building the Windows release.
+pytest>=7
+pyflakes>=3
+pillow>=10
+pyinstaller==6.22.3

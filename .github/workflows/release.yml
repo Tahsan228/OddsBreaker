@@ -1,0 +1,91 @@
+name: Release
+
+# Push a tag like v1.0.0 to build the Windows app and publish a GitHub release.
+# Running it by hand (Actions > Release > Run workflow) builds everything and
+# keeps the files as workflow artifacts without publishing.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build the Windows app
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install build tools
+        run: pip install -r requirements-dev.txt
+      - name: Tests
+        run: python -m pytest -q
+      - name: Build OddsBreaker.exe (PyInstaller)
+        run: python packaging/build.py --exe
+      - name: Self-test the built app (folder version)
+        shell: pwsh
+        run: |
+          $p = Start-Process "dist/OddsBreaker/OddsBreaker.exe" -ArgumentList "--selftest","selftest-installed" -Wait -PassThru
+          Get-Content selftest-installed/selftest.txt
+          if ($p.ExitCode -ne 0) { exit 1 }
+      - name: Self-test the built app (single file)
+        shell: pwsh
+        run: |
+          $p = Start-Process "dist/onefile/OddsBreaker.exe" -ArgumentList "--selftest","selftest-onefile" -Wait -PassThru
+          Get-Content selftest-onefile/selftest.txt
+          if ($p.ExitCode -ne 0) { exit 1 }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: dist/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: selftest-screens
+          path: |
+            selftest-installed
+            selftest-onefile
+
+  package:
+    name: Installer and release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check the tag matches the app version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          python -c "import sys; from oddsbreaker import __version__ as v; t = sys.argv[1]; sys.exit(0 if t == 'v' + v else 'Tag %s does not match __version__ %s' % (t, v))" "${GITHUB_REF_NAME}"
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-build
+          path: dist
+      - name: Install NSIS
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq nsis
+      - name: Build installer, portable zip and checksums
+        run: python packaging/build.py --package
+      - name: Release notes
+        run: python packaging/release_notes.py "${GITHUB_REF_NAME}" > release/NOTES.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-files
+          path: release/
+      - name: Publish the GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            release/*-Setup.exe release/*-Portable.zip "release/OddsBreaker-${GITHUB_REF_NAME#v}.exe" \
+            release/SHA256SUMS.txt \
+            --title "OddsBreaker ${GITHUB_REF_NAME}" \
+            --notes-file release/NOTES.md

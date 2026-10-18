@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  linux:
+    name: Tests (Linux, Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install test tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb
+          python -m pip install --upgrade pip
+          pip install pytest pyflakes pillow
+      - name: Lint
+        run: python -m pyflakes oddsbreaker tests packaging tools OddsBreaker.pyw
+      - name: Tests (with a virtual screen)
+        run: xvfb-run -a -s "-screen 0 1600x1000x24" python -m pytest -q
+
+  windows:
+    name: Tests (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test tools
+        run: pip install pytest pillow
+      - name: Tests
+        run: python -m pytest -q
+      - name: Self-test from source
+        shell: pwsh
+        run: |
+          $p = Start-Process python -ArgumentList "-m","oddsbreaker","--selftest","selftest-source" -Wait -PassThru -NoNewWindow
+          Get-Content selftest-source/selftest.txt
+          if ($p.ExitCode -ne 0) { exit 1 }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: selftest-screens-windows
+          path: selftest-source

@@ -1,0 +1,19 @@
+name: Feature idea
+description: Suggest something new for OddsBreaker
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: How would it help your hunts?
+  - type: input
+    id: setup
+    attributes:
+      label: Emulator and game you'd use it with
+      placeholder: "melonDS, Pokémon Platinum"

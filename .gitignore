@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# Build output
+build/
+dist/
+release/
+*.spec.bak
+
+# Your hunts when running from source in portable mode
+OddsBreaker_data/
+ShinyDex_data/
+portable.txt
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Installer art (made by packaging/make_assets.py at build time)
+assets/*.bmp

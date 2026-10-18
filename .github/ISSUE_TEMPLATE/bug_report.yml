@@ -1,0 +1,55 @@
+name: Bug report
+description: Something doesn't work the way it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting this! The more you can tell, the faster it gets fixed.
+  - type: input
+    id: version
+    attributes:
+      label: OddsBreaker version
+      description: MORE > ABOUT shows it.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: download
+    attributes:
+      label: Which download do you use?
+      options:
+        - Installer (Setup.exe)
+        - Single .exe
+        - Portable zip
+        - Running from source
+    validations:
+      required: true
+  - type: input
+    id: emulator
+    attributes:
+      label: Emulator and game
+      placeholder: "mGBA 0.10.3, Pokémon Emerald"
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: "Windows 11 24H2"
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: If there is a logs/oddsbreaker.log in the data folder (MORE > DATA FOLDER), paste the end of it here.
+      render: text
+  - type: textarea
+    id: pictures
+    attributes:
+      label: Screenshots
+      description: Drag pictures in here if they help show the problem.
