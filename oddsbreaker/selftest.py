@@ -17,6 +17,7 @@ import traceback
 import tkinter as tk
 
 from . import APP_NAME, __version__, paths
+from .art import LEFT_W, PANEL_W
 from .config import IS_WIN
 from .imaging import save_frame_png
 
@@ -34,6 +35,7 @@ class Driver(object):
         self.root = app.root
         self.outdir = outdir
         self.log = []
+        self.said = []
         self.grabber = None
         if outdir:
             os.makedirs(outdir, exist_ok=True)
@@ -376,7 +378,7 @@ def scenario(d):
     assert not [i for i in app.readiness() if not i[1]], app.readiness()
     d.click_w(app.start_btn)
     d.pump(0.8)
-    assert app.hunter is not None, "hunt should start"
+    assert app.hunter is not None, "hunt should start (it said %r)" % d.said[-3:]
     assert d.wait_for(lambda: p["encounters"] >= 3, 8), p["encounters"]
     d.shot("25_hunting", settle=0.2)
     plat.shiny = True
@@ -449,10 +451,19 @@ def run_selftest(outdir, keep_data=False):
         root = tk.Tk()
         plat = StubPlatform()
         app = App(root, plat, check_updates=False)
+        # Keep the pretend emulator clear of our window, even on small screens
+        # (the app won't hunt while it covers the watch area).
+        plat.origin = (app.win_x + (LEFT_W + PANEL_W) * app.S + 24, 40)
         sent = []
         app.notifier.send = lambda settings, title, text, *a, **k: sent.append(title) or 1
         drv = Driver(app, outdir)
         drv.sent = sent
+        real_say = app.say
+
+        def say(text, *a, **k):
+            drv.said.append(text)
+            return real_say(text, *a, **k)
+        app.say = say
         drv.note("scale %d, tk %s" % (app.S, tk.TkVersion))
         try:
             scenario(drv)

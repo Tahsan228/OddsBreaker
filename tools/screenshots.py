@@ -279,6 +279,8 @@ def long_run_rate(p, *_session):
 def open_app(plat):
     root = tk.Tk()
     app = ShotApp(root, plat, check_updates=False)
+    # the pretend emulator sits right of the window, so the app never covers it
+    plat.origin = (app.win_x + (LEFT_W + PANEL_W) * app.S + 24, 40)
     return root, app, Driver(app)
 
 
