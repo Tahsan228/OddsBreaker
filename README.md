@@ -147,7 +147,7 @@ python packaging/build.py --exe         # OddsBreaker.exe with PyInstaller (on W
 python packaging/build.py --package     # installer, portable zip and checksums (needs NSIS 3)
 ```
 
-Releases build themselves: bump `__version__` in `oddsbreaker/__init__.py`, add a section to [CHANGELOG.md](CHANGELOG.md) and push a tag like `v1.0.1`. GitHub Actions runs the tests, builds the app, self-tests the .exe and publishes the release. The pictures in this README come from `tools/screenshots.py`.
+Releases build themselves. Bump `__version__` in `oddsbreaker/__init__.py` and add a section to [CHANGELOG.md](CHANGELOG.md), then open **Actions > Release > Run workflow** and tick **Publish** (pushing a tag like `v1.0.1` works too). GitHub Actions runs the tests, builds the app, self-tests the .exe on Windows and publishes the release with all three downloads. The pictures in this README come from `tools/screenshots.py`.
 
 ## Credits
 

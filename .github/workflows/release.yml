@@ -1,12 +1,27 @@
 name: Release
 
-# Push a tag like v1.0.0 to build the Windows app and publish a GitHub release.
-# Running it by hand (Actions > Release > Run workflow) builds everything and
-# keeps the files as workflow artifacts without publishing.
+# Builds the Windows app, tests it and puts it on the Releases page.
+#
+# Three ways to start it:
+#   - Actions > Release > Run workflow, with "Publish" ticked: releases the
+#     version in oddsbreaker/__init__.py (it makes the tag itself).
+#     Leave "Publish" unticked to only build; the files stay as artifacts.
+#   - Push a tag like v1.0.0.
+#   - Releases > Draft a new release with a new tag like v1.0.0. The files
+#     are added to that release when the build is done.
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish a release for the version in oddsbreaker/__init__.py"
+        type: boolean
+        default: false
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -70,10 +85,16 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-      - name: Check the tag matches the app version
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Work out the version
+        id: ver
         run: |
-          python -c "import sys; from oddsbreaker import __version__ as v; t = sys.argv[1]; sys.exit(0 if t == 'v' + v else 'Tag %s does not match __version__ %s' % (t, v))" "${GITHUB_REF_NAME}"
+          v=$(python -c "from oddsbreaker import __version__ as v; print(v)")
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "tag=v$v" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$GITHUB_REF_NAME" != "v$v" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match the app version $v (oddsbreaker/__init__.py)"
+            exit 1
+          fi
       - uses: actions/download-artifact@v8
         with:
           name: windows-build
@@ -85,18 +106,27 @@ jobs:
       - name: Build installer, portable zip and checksums
         run: python packaging/build.py --package
       - name: Release notes
-        run: python packaging/release_notes.py "${GITHUB_REF_NAME}" > release/NOTES.md
+        run: python packaging/release_notes.py "${{ steps.ver.outputs.tag }}" > release/NOTES.md
       - uses: actions/upload-artifact@v7
         with:
           name: release-files
           path: release/
       - name: Publish the GitHub release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: github.ref_type == 'tag' || inputs.publish
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.ver.outputs.tag }}
+          VERSION: ${{ steps.ver.outputs.version }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" \
-            release/*-Setup.exe release/*-Portable.zip "release/OddsBreaker-${GITHUB_REF_NAME#v}.exe" \
-            release/SHA256SUMS.txt \
-            --title "OddsBreaker ${GITHUB_REF_NAME}" \
-            --notes-file release/NOTES.md
+          files=(release/OddsBreaker-$VERSION-Setup.exe release/OddsBreaker-$VERSION.exe
+                 release/OddsBreaker-$VERSION-Portable.zip release/SHA256SUMS.txt)
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            # made by hand on the Releases page: add the files, keep any notes written there
+            gh release upload "$TAG" "${files[@]}" --clobber
+            if [ -z "$(gh release view "$TAG" --json body --jq .body)" ]; then
+              gh release edit "$TAG" --notes-file release/NOTES.md
+            fi
+          else
+            gh release create "$TAG" "${files[@]}" --target "$GITHUB_SHA" \
+              --title "OddsBreaker $TAG" --notes-file release/NOTES.md
+          fi
