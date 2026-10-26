@@ -1,0 +1,683 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OddsBreaker · Automatic shiny hunter</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="OddsBreaker plays the soft-reset loop in your emulator, checks every encounter and stops with a jingle when a shiny shows up. Free for Windows.">
+<meta property="og:title" content="OddsBreaker, the automatic shiny hunter">
+<meta property="og:description" content="Plays the reset loop, checks every encounter and stops when a shiny shows up. Free for Windows.">
+<meta property="og:image" content="https://tahsan228.github.io/OddsBreaker/img/hero.png">
+<link rel="icon" type="image/png" href="img/icon-256.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@700&family=Silkscreen&family=Nunito:wght@500;700&display=swap">
+<style>
+/* Layout: a Gen 5 menu. Angled panels with cut corners, a two-screen hero
+   (upper screen sells, lower "touch screen" navigates), then in-game style
+   menus. Dark is BLACK (navy + cyan), light is WHITE (silver + orange). */
+:root {
+  --bg: #eef1f6;
+  --bg-2: #e2e7ef;
+  --panel: #ffffff;
+  --panel-2: #f3f5f9;
+  --line: #c3ccdb;
+  --ink: #161d2c;
+  --dim: #56637b;
+  --accent: #e8521f;
+  --accent-ink: #ffffff;
+  --accent-2: #2f6fdc;
+  --gold: #b88700;
+  --shiny: #ffcf33;
+  --red: #d8233c;
+  --stripe: rgba(232, 82, 31, 0.07);
+  --hex: rgba(47, 111, 220, 0.06);
+  --shadow: 0 2px 0 rgba(22, 29, 44, 0.12), 0 10px 24px -14px rgba(22, 29, 44, 0.35);
+  --screen: #0b1220;
+  --screen-ink: #eaf2ff;
+  --lcd: #a7c43a;
+  --lcd-ink: #263a05;
+  --f-display: "Pixelify Sans", "Silkscreen", ui-monospace, "Cascadia Mono", monospace;
+  --f-label: "Silkscreen", "Pixelify Sans", ui-monospace, monospace;
+  --f-body: "Nunito", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --cut: 14px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #090d18; --bg-2: #0d1322; --panel: #111a2c; --panel-2: #16223a; --line: #2a3b5c;
+    --ink: #e9f1ff; --dim: #93a6c8; --accent: #35d4f2; --accent-ink: #04121a; --accent-2: #ff4d6d;
+    --gold: #ffd93b; --shiny: #ffd93b; --red: #ff4d6d;
+    --stripe: rgba(53, 212, 242, 0.06); --hex: rgba(53, 212, 242, 0.045);
+    --shadow: 0 2px 0 rgba(0, 0, 0, 0.5), 0 14px 30px -16px rgba(0, 0, 0, 0.8);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #090d18; --bg-2: #0d1322; --panel: #111a2c; --panel-2: #16223a; --line: #2a3b5c;
+  --ink: #e9f1ff; --dim: #93a6c8; --accent: #35d4f2; --accent-ink: #04121a; --accent-2: #ff4d6d;
+  --gold: #ffd93b; --shiny: #ffd93b; --red: #ff4d6d;
+  --stripe: rgba(53, 212, 242, 0.06); --hex: rgba(53, 212, 242, 0.045);
+  --shadow: 0 2px 0 rgba(0, 0, 0, 0.5), 0 14px 30px -16px rgba(0, 0, 0, 0.8);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 500 16px/1.6 var(--f-body);
+  -webkit-font-smoothing: antialiased;
+}
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px);
+  z-index: 10; background: var(--panel);
+}
+img { max-width: 100%; height: auto; }
+.pixel { image-rendering: pixelated; image-rendering: crisp-edges; }
+a { color: var(--accent-2); }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+p { margin: 0; }
+
+.wrap {
+  width: 100%; max-width: 1080px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+/* the angled panel every menu is built from */
+.panel {
+  background: var(--panel);
+  border: 2px solid var(--line);
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+  box-shadow: var(--shadow);
+}
+.label {
+  font: 400 12px/1 var(--f-label); letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim);
+}
+
+/* ------------------------------------------------------------ top bar */
+.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--panel); border-bottom: 2px solid var(--line);
+}
+.top .wrap { display: flex; align-items: center; gap: 18px; min-height: 56px; padding-block: 8px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); }
+.brand img { width: 30px; height: 30px; }
+.brand b { font: 700 19px/1 var(--f-display); letter-spacing: 0.02em; }
+.brand b span { color: var(--accent); }
+.nav { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
+.nav a {
+  font: 400 13px/1 var(--f-label); color: var(--ink); text-decoration: none; padding: 9px 10px;
+  border: 2px solid transparent;
+}
+.nav a:hover { border-color: var(--line); background: var(--panel-2); }
+.clock {
+  font: 400 16px/1 var(--f-label); color: var(--dim);
+  padding: 7px 10px; background: var(--panel-2); border: 2px solid var(--line);
+}
+.theme {
+  display: inline-flex; border: 2px solid var(--line); background: var(--panel-2); padding: 2px; gap: 2px;
+}
+.theme button {
+  font: 400 12px/1 var(--f-label); border: 0; padding: 7px 9px; cursor: pointer; color: var(--dim); background: none;
+}
+.theme button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
+
+/* ------------------------------------------------------------ hero: upper screen */
+.hero { position: relative; overflow: hidden; border-bottom: 2px solid var(--line); background: var(--bg-2); }
+.hero::before { /* C-Gear style hex grid */
+  content: ""; position: absolute; inset: 0;
+  background-image:
+    linear-gradient(30deg, var(--hex) 12%, transparent 12.5%, transparent 87%, var(--hex) 87.5%, var(--hex)),
+    linear-gradient(150deg, var(--hex) 12%, transparent 12.5%, transparent 87%, var(--hex) 87.5%, var(--hex)),
+    linear-gradient(30deg, var(--hex) 12%, transparent 12.5%, transparent 87%, var(--hex) 87.5%, var(--hex)),
+    linear-gradient(150deg, var(--hex) 12%, transparent 12.5%, transparent 87%, var(--hex) 87.5%, var(--hex)),
+    linear-gradient(60deg, var(--stripe) 25%, transparent 25.5%, transparent 75%, var(--stripe) 75%, var(--stripe));
+  background-size: 48px 84px; background-position: 0 0, 0 0, 24px 42px, 24px 42px, 0 0;
+  animation: drift 40s linear infinite;
+}
+.streaks { position: absolute; inset: 0; pointer-events: none; }
+.streaks i {
+  position: absolute; height: 3px; width: 38%; left: -40%;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  transform: skewX(-30deg); opacity: 0.55; animation: streak 3.6s linear infinite;
+}
+.streaks i:nth-child(1) { top: 5%; animation-delay: 0s; }
+.streaks i:nth-child(2) { top: 9%; animation-delay: 1.3s; height: 2px; }
+.streaks i:nth-child(3) { bottom: 4%; animation-delay: 2.4s; }
+@keyframes streak { to { left: 110%; } }
+@keyframes drift { to { background-position: 48px 84px, 48px 84px, 72px 126px, 72px 126px, 96px 0; } }
+
+.hero .wrap {
+  position: relative; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: 40px; align-items: center; padding-block: 56px 48px;
+}
+.hero-copy { display: grid; gap: 22px; min-width: 0; }
+.banner { width: min(100%, 410px); }
+.hero h1 { font: 700 clamp(28px, 4.2vw, 44px)/1.12 var(--f-display); letter-spacing: 0.01em; }
+.hero h1 em { font-style: normal; color: var(--accent); }
+.hero .lede { font-size: 18px; color: var(--dim); max-width: 34em; }
+
+/* try it: an LCD and an A button, one soft reset per press */
+.try { position: relative; display: grid; grid-template-columns: auto auto; gap: 10px 16px; align-items: center; justify-content: start; }
+.lcd {
+  display: inline-grid; grid-template-columns: repeat(3, auto); gap: 4px 22px;
+  background: var(--lcd); color: var(--lcd-ink); padding: 10px 16px 9px; border: 3px solid #1b2a04;
+  box-shadow: inset 0 0 0 2px #c4dd5e; font: 400 16px/1.1 var(--f-label);
+}
+.lcd b { font-weight: 400; }
+.lcd span { display: block; font: 400 10px/1 var(--f-label); letter-spacing: 0.06em; opacity: 0.75; margin-bottom: 4px; }
+.try.hit .lcd { animation: hit 0.3s steps(2) 8; }
+@keyframes hit { 50% { background: #fff3a6; } }
+.abtn {
+  width: 58px; height: 58px; border-radius: 50%; cursor: pointer; padding: 0;
+  font: 400 24px/1 var(--f-label); color: #fff; background: var(--red); border: 3px solid #1a0f14;
+  box-shadow: inset -4px -4px 0 rgba(0, 0, 0, 0.28), inset 4px 4px 0 rgba(255, 255, 255, 0.3), 0 4px 0 #1a0f14;
+  transform: translateY(-2px); transition: transform 0.05s, box-shadow 0.05s;
+}
+.abtn:active, .abtn.down {
+  transform: translateY(2px);
+  box-shadow: inset -3px -3px 0 rgba(0, 0, 0, 0.28), inset 3px 3px 0 rgba(255, 255, 255, 0.24), 0 0 0 #1a0f14;
+}
+.try-msg { grid-column: 1 / -1; font-size: 14px; color: var(--dim); min-height: 1.6em; }
+.try-msg b { color: var(--ink); }
+.try .spark { display: none; }
+.try.hit .spark { display: block; }
+.try .spark.t1 { top: -12px; left: 18px; }
+.try .spark.t2 { top: -10px; left: 58%; animation-delay: 0.5s; transform: scale(0.7); }
+.try .spark.t3 { top: 34px; left: -12px; animation-delay: 0.9s; transform: scale(0.8); }
+
+.cta-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.btn {
+  --c: var(--accent); --t: var(--accent-ink);
+  position: relative; overflow: hidden; display: inline-flex; align-items: center; gap: 12px;
+  font: 700 17px/1 var(--f-display); letter-spacing: 0.02em; text-decoration: none;
+  color: var(--t); background: var(--c); padding: 16px 22px 15px 20px; border: 3px solid var(--ink);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+.btn::before { content: "▶"; font-size: 13px; transition: transform 0.15s; }
+.btn:hover::before { transform: translateX(3px); animation: blink 0.5s steps(2) infinite; }
+.btn::after { /* the same shine that sweeps the app's logo */
+  content: ""; position: absolute; inset: -20% auto -20% -40%; width: 28%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+  transform: skewX(-25deg); animation: shine 3.2s ease-in-out infinite;
+}
+@keyframes shine { 0%, 55% { left: -40%; } 100% { left: 130%; } }
+@keyframes blink { 50% { opacity: 0; } }
+.btn small { font: 400 11px/1 var(--f-label); opacity: 0.85; letter-spacing: 0.06em; }
+.btn.ghost { --c: var(--panel); --t: var(--ink); }
+.btn.ghost::after { display: none; }
+.alt-links { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; color: var(--dim); }
+
+/* the demo, framed like a device with sparkles around it */
+.stage { position: relative; justify-self: center; width: min(100%, 410px); }
+.stage .frame {
+  position: relative; padding: 10px; background: #1b1b22; border: 2px solid var(--line);
+  clip-path: polygon(18px 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%, 0 18px);
+  box-shadow: var(--shadow);
+}
+.stage .frame img { display: block; width: 100%; }
+.stage figcaption { margin-top: 10px; text-align: center; }
+.spark { position: absolute; width: 18px; height: 18px; pointer-events: none; animation: twinkle 1.8s steps(4) infinite; }
+.spark::before, .spark::after { content: ""; position: absolute; background: var(--shiny); }
+.spark::before { left: 7px; top: 0; width: 4px; height: 18px; }
+.spark::after { top: 7px; left: 0; width: 18px; height: 4px; }
+.spark.s1 { top: -8px; left: 12%; }
+.spark.s2 { top: 22%; right: -9px; animation-delay: 0.6s; transform: scale(0.7); }
+.spark.s3 { bottom: 16%; left: -9px; animation-delay: 1.1s; transform: scale(0.8); }
+.spark.s4 { bottom: -8px; right: 22%; animation-delay: 0.3s; transform: scale(0.6); }
+@keyframes twinkle { 0%, 100% { opacity: 0; } 25%, 60% { opacity: 1; } }
+
+/* ------------------------------------------------------------ ticker between the screens */
+.ticker { overflow: hidden; background: var(--accent); color: var(--accent-ink); border-bottom: 2px solid var(--line); }
+.ticker-track { display: flex; width: max-content; animation: ticker 48s linear infinite; }
+.ticker p { margin: 0; display: flex; align-items: center; white-space: nowrap; font: 400 13px/1 var(--f-label); letter-spacing: 0.1em; padding: 12px 0 11px; }
+.ticker i {
+  display: inline-block; width: 9px; height: 9px; margin: 0 18px;
+  background: linear-gradient(currentColor, currentColor) center / 3px 9px no-repeat,
+              linear-gradient(currentColor, currentColor) center / 9px 3px no-repeat;
+}
+@keyframes ticker { to { transform: translateX(-50%); } }
+
+/* ------------------------------------------------------------ lower screen: touch menu */
+.touch { padding-block: 26px; }
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.tile {
+  display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; align-items: center; padding: 16px 16px 15px;
+  text-decoration: none; color: var(--ink); background: var(--panel); border: 2px solid var(--line);
+  clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+  transition: transform 0.12s, border-color 0.12s;
+}
+.tile:hover { transform: translateY(-2px); border-color: var(--accent); }
+.tile .ico { grid-row: span 2; width: 34px; height: 34px; color: var(--accent); }
+.tile b { font: 400 16px/1.1 var(--f-label); }
+.tile span { font-size: 13px; color: var(--dim); line-height: 1.3; }
+
+/* ------------------------------------------------------------ sections */
+section { scroll-margin-top: 84px; }
+.sec { padding-block: 44px; }
+.sec + .sec { border-top: 2px dashed var(--line); }
+.tab-title { display: flex; align-items: center; gap: 14px; margin-bottom: 26px; }
+.tab-title h2 {
+  font: 400 24px/1 var(--f-label); color: var(--accent-ink); background: var(--accent);
+  padding: 11px 28px 10px 16px; clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
+}
+.tab-title p { color: var(--dim); }
+.tab-title::after { content: ""; flex: 1; height: 6px; background: repeating-linear-gradient(-55deg, var(--line) 0 6px, transparent 6px 12px); }
+
+/* route: the five setup pages are a real sequence */
+.route { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; position: relative; }
+.route::before {
+  content: ""; position: absolute; left: 6%; right: 6%; top: 27px; height: 4px;
+  background: repeating-linear-gradient(90deg, var(--line) 0 10px, transparent 10px 16px);
+}
+.stop { position: relative; display: grid; gap: 10px; justify-items: start; align-content: start; }
+.stop .num {
+  width: 58px; height: 58px; display: grid; place-items: center; font: 400 24px/1 var(--f-label);
+  background: var(--panel); border: 3px solid var(--ink); color: var(--ink);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+.stop:last-child .num { background: var(--accent); color: var(--accent-ink); }
+.stop h3 { font: 400 16px/1.1 var(--f-label); }
+.stop p { font-size: 14px; color: var(--dim); line-height: 1.45; }
+.route-end { margin-top: 22px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; color: var(--dim); }
+.route-end b { font: 400 16px/1 var(--f-label); color: var(--ink); }
+.key {
+  font: 400 12px/1 var(--f-label); color: var(--ink); background: var(--panel); border: 2px solid var(--line);
+  border-bottom-width: 4px; padding: 4px 7px 3px;
+}
+
+/* dex entries: features with Pokemon-style type chips */
+.dex { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.entry { padding: 18px 18px 17px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.entry header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.entry h3 { font: 400 16px/1.2 var(--f-label); }
+.entry p { font-size: 15px; color: var(--dim); line-height: 1.5; }
+.type {
+  font: 400 11px/1 var(--f-label); letter-spacing: 0.08em; color: #fff; padding: 5px 8px 4px; white-space: nowrap;
+  clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+}
+.t-auto { background: #4f6fd1; } .t-alert { background: #d6406e; } .t-stats { background: #2f9b6a; }
+.t-stream { background: #8a4fd1; } .t-safe { background: #6d7a8c; } .t-style { background: #d68a1c; }
+
+/* screens: a tabbed viewer like the app's own keys */
+.viewer { display: grid; grid-template-columns: 240px minmax(0, auto); gap: 24px; align-items: start; justify-content: center; }
+.keys { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.keys button {
+  font: 400 16px/1 var(--f-label); cursor: pointer; padding: 11px 6px 10px;
+  color: #eaf2ff; background: #2a64c8; border: 2px solid #0d1f45; border-bottom-width: 4px;
+}
+.keys button[aria-selected="true"] { background: #c6e4ff; color: #0d1f45; }
+.keys + p { margin-top: 14px; font-size: 14px; color: var(--dim); }
+.shot { padding: 16px; display: grid; justify-items: center; gap: 12px; min-width: 0; }
+.shot img { width: 448px; max-width: 100%; }
+.shot figcaption { font-size: 15px; color: var(--dim); text-align: center; max-width: 44ch; }
+.shot.flip img { animation: blinds 0.28s steps(6); }
+@keyframes blinds { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
+
+.wide { margin-top: 26px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
+.wide figure { margin: 0; padding: 16px; display: grid; gap: 10px; min-width: 0; }
+.wide figure img { width: 100%; }
+.wide figcaption { font-size: 14px; color: var(--dim); }
+
+/* downloads: bag items */
+.bag { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.item { padding: 20px 18px 18px; display: flex; flex-direction: column; gap: 12px; position: relative; min-width: 0; }
+.item .tag {
+  position: absolute; top: 12px; right: 12px; font: 400 10px/1 var(--f-label); letter-spacing: 0.08em;
+  background: var(--shiny); color: #3a2a00; padding: 5px 7px 4px;
+}
+.item h3 { font: 400 16px/1.2 var(--f-label); padding-right: 76px; }
+.item code { font: 600 13px/1.4 ui-monospace, "Cascadia Mono", Consolas, monospace; color: var(--dim); word-break: break-all; }
+.item p { font-size: 15px; color: var(--dim); }
+.item .btn { align-self: flex-start; margin-top: auto; font-size: 15px; padding: 12px 16px 11px 14px; }
+.note { margin-top: 18px; padding: 16px 18px; display: grid; gap: 6px; }
+.note b { font: 400 16px/1.25 var(--f-label); }
+.note p { color: var(--dim); font-size: 15px; }
+.facts { margin-top: 18px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.facts div { padding: 14px; background: var(--panel-2); border: 2px solid var(--line); }
+.facts b { display: block; font: 400 16px/1.25 var(--f-label); margin-bottom: 6px; }
+.facts span { font-size: 14px; color: var(--dim); line-height: 1.4; display: block; }
+
+footer { border-top: 2px solid var(--line); background: var(--panel); }
+footer .wrap { padding-block: 28px; display: grid; gap: 10px; font-size: 14px; color: var(--dim); }
+footer .made { font: 400 16px/1 var(--f-label); color: var(--ink); }
+footer .made span { color: var(--red); }
+
+@media (max-width: 900px) {
+  .hero .wrap { grid-template-columns: minmax(0, 1fr); padding-block: 36px; }
+  .streaks { display: none; }
+  .stage { width: min(100%, 360px); }
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .route { grid-template-columns: minmax(0, 1fr); }
+  .route::before { display: none; }
+  .stop { grid-template-columns: 58px minmax(0, 1fr); align-items: center; column-gap: 14px; }
+  .stop p { grid-column: 2; }
+  .dex, .bag { grid-template-columns: minmax(0, 1fr); }
+  .viewer { grid-template-columns: minmax(0, 1fr); }
+  .keys { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .wide { grid-template-columns: minmax(0, 1fr); }
+  .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .nav { display: none; }
+}
+@media (max-width: 480px) {
+  .lcd { grid-template-columns: repeat(2, auto); gap: 6px 16px; }
+  .facts { grid-template-columns: minmax(0, 1fr); }
+  .tab-title { flex-wrap: wrap; }
+  .tab-title::after { display: none; }
+  .clock { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="OddsBreaker home">
+      <img class="pixel" src="img/icon-256.png" alt="" width="30" height="30">
+      <b>ODDS<span>BREAKER</span></b>
+    </a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#how">HOW IT WORKS</a>
+      <a href="#features">FEATURES</a>
+      <a href="#screens">SCREENS</a>
+      <a href="#download">DOWNLOAD</a>
+    </nav>
+    <div class="clock" id="clock" aria-hidden="true">12:00</div>
+    <div class="theme" role="group" aria-label="Colour theme">
+      <button type="button" id="t-dark" aria-pressed="false">BLACK</button>
+      <button type="button" id="t-light" aria-pressed="false">WHITE</button>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero" aria-labelledby="h-title">
+    <div class="streaks" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="wrap">
+      <div class="hero-copy">
+        <img class="banner pixel" src="img/banner.png" alt="OddsBreaker" width="410" height="100">
+        <h1 id="h-title">The automatic shiny hunter <em>for any emulator</em>.</h1>
+        <p class="lede">It plays the soft-reset loop for you, looks at every encounter and stops with a jingle the moment a shiny shows up. Go do something else. It'll call you back.</p>
+        <div class="try" id="try">
+          <div class="lcd">
+            <div><span>YOUR RESETS</span><b id="lcd-n">0</b></div>
+            <div><span>ODDS</span><b>1/8192</b></div>
+            <div><span>CHANCE</span><b id="lcd-c">0.0%</b></div>
+          </div>
+          <button class="abtn" id="abtn" type="button" aria-label="Soft reset once" aria-describedby="try-msg">A</button>
+          <p class="try-msg" id="try-msg" aria-live="polite">Try it: press <b>A</b> to soft reset once, by hand.</p>
+          <i class="spark t1"></i><i class="spark t2"></i><i class="spark t3"></i>
+        </div>
+        <div class="cta-row">
+          <a class="btn dl-setup" href="https://github.com/Tahsan228/OddsBreaker/releases/latest">DOWNLOAD <small class="dl-ver">FOR WINDOWS</small></a>
+          <a class="btn ghost" href="https://github.com/Tahsan228/OddsBreaker">VIEW ON GITHUB</a>
+        </div>
+        <p class="alt-links"><span>Windows 10 and 11 · free · no admin rights needed</span><a class="dl-exe" href="https://github.com/Tahsan228/OddsBreaker/releases/latest">single .exe</a><a class="dl-zip" href="https://github.com/Tahsan228/OddsBreaker/releases/latest">portable zip</a></p>
+      </div>
+      <figure class="stage">
+        <div class="frame">
+          <img class="pixel" src="img/demo.gif" alt="OddsBreaker opening, hunting a Charmander and celebrating when a shiny one appears" width="408" height="792">
+        </div>
+        <i class="spark s1"></i><i class="spark s2"></i><i class="spark s3"></i><i class="spark s4"></i>
+        <figcaption class="label">The app itself, from boot to shiny</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <div class="ticker" aria-hidden="true"><div class="ticker-track"><p>PLAYS THE RESET LOOP FOR YOU<i></i>CHECKS EVERY ENCOUNTER<i></i>STOPS WITH A JINGLE ON A SHINY<i></i>MGBA<i></i>DESMUME<i></i>MELONDS<i></i>AZAHAR<i></i>RETROARCH<i></i>DISCORD AND PHONE ALERTS<i></i>FREE FOR WINDOWS<i></i></p><p>PLAYS THE RESET LOOP FOR YOU<i></i>CHECKS EVERY ENCOUNTER<i></i>STOPS WITH A JINGLE ON A SHINY<i></i>MGBA<i></i>DESMUME<i></i>MELONDS<i></i>AZAHAR<i></i>RETROARCH<i></i>DISCORD AND PHONE ALERTS<i></i>FREE FOR WINDOWS<i></i></p></div></div>
+
+  <div class="wrap touch">
+    <nav class="tiles" aria-label="Jump to">
+      <a class="tile" href="#how"><svg class="ico" data-icon="route" viewBox="0 0 9 9" aria-hidden="true"></svg><b>How it works</b><span>Five setup pages, then START</span></a>
+      <a class="tile" href="#features"><svg class="ico" data-icon="dex" viewBox="0 0 9 9" aria-hidden="true"></svg><b>Features</b><span>Alerts, stats, streaming and more</span></a>
+      <a class="tile" href="#screens"><svg class="ico" data-icon="screen" viewBox="0 0 9 9" aria-hidden="true"></svg><b>Screens</b><span>Every page of the device</span></a>
+      <a class="tile" href="#download"><svg class="ico" data-icon="bag" viewBox="0 0 9 9" aria-hidden="true"></svg><b>Download</b><span>Installer, .exe or portable</span></a>
+    </nav>
+  </div>
+
+  <section class="sec" id="how" aria-labelledby="h-how">
+    <div class="wrap">
+      <div class="tab-title"><h2 id="h-how">HOW IT WORKS</h2></div>
+      <ol class="route" style="list-style: none; margin: 0; padding: 0;">
+        <li class="stop"><div class="num">1</div><h3>Hunt</h3><p>Type the Pokémon and pick the game, which sets the odds. Then pick your emulator's window.</p></li>
+        <li class="stop"><div class="num">2</div><h3>Keys</h3><p>The keys your emulator uses. mGBA, DeSmuME, melonDS, Azahar and more fill in for you.</p></li>
+        <li class="stop"><div class="num">3</div><h3>Steps</h3><p>The reset loop it plays. Start from a GBA, DS or 3DS soft reset and tweak the waits.</p></li>
+        <li class="stop"><div class="num">4</div><h3>Area</h3><p>Drag a box around the spot where the Pokémon shows up in battle.</p></li>
+        <li class="stop"><div class="num">5</div><h3>Check</h3><p>Pause on a normal one and press ADD FRAME. Every encounter gets compared to it.</p></li>
+      </ol>
+      <p class="route-end"><b>Then press START</b> or <span class="key">F8</span> from anywhere. It only presses keys while your emulator is the active window, so clicking away pauses it.</p>
+    </div>
+  </section>
+
+  <section class="sec" id="features" aria-labelledby="h-features">
+    <div class="wrap">
+      <div class="tab-title"><h2 id="h-features">FEATURES</h2></div>
+      <div class="dex">
+        <article class="entry panel"><header><h3>Any emulator</h3><span class="type t-auto">AUTO</span></header><p>It types like a keyboard and looks at the screen like a screenshot. No plugins, no memory reading, no patched ROMs.</p></article>
+        <article class="entry panel"><header><h3>Shiny check</h3><span class="type t-auto">AUTO</span></header><p>Compares each encounter to the normal colours, with a live meter and a SUGGEST button that sets a safe threshold from your real scores.</p></article>
+        <article class="entry panel"><header><h3>Alerts anywhere</h3><span class="type t-alert">ALERT</span></header><p>A Discord message with the screenshot, a push to your phone through ntfy, and a heads-up if a hunt stops on its own.</p></article>
+        <article class="entry panel"><header><h3>Real numbers</h3><span class="type t-stats">STATS</span></header><p>Resets, time, pace per hour, your chance of having found it by now and how long until 50% and 90%.</p></article>
+        <article class="entry panel"><header><h3>Made for streams</h3><span class="type t-stream">STREAM</span></header><p>Text files for OBS with the count, odds, pace and phase, plus the Pokémon's sprite. Mini mode keeps a small counter on screen.</p></article>
+        <article class="entry panel"><header><h3>Safe and yours</h3><span class="type t-safe">SAFE</span></header><p>Saves as it goes with a daily backup, never touches your game files, and keeps every hunt on your PC.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="screens" aria-labelledby="h-screens">
+    <div class="wrap">
+      <div class="tab-title"><h2 id="h-screens">SCREENS</h2></div>
+      <div class="viewer">
+        <div>
+          <div class="keys" role="tablist" aria-label="Pages of the device">
+            <button type="button" role="tab" id="k-script" aria-selected="true" data-img="img/page-script.png" data-cap="STEPS: the reset loop, in plain words. TEST runs it once.">STEPS</button>
+            <button type="button" role="tab" id="k-check" aria-selected="false" data-img="img/page-check.png" data-cap="SHINY CHECK: the live difference meter and the red line that means shiny.">CHECK</button>
+            <button type="button" role="tab" id="k-alert" aria-selected="false" data-img="img/page-alert.png" data-cap="ALERTS: Discord, your phone through ntfy, and files for OBS.">ALERT</button>
+            <button type="button" role="tab" id="k-dex" aria-selected="false" data-img="img/page-dex.png" data-cap="MY HUNTS: every Pokémon keeps its own count, keys, steps and area.">DEX</button>
+            <button type="button" role="tab" id="k-log" aria-selected="false" data-img="img/page-log.png" data-cap="SHINY LOG: a picture of every shiny, plus CSV export.">LOG</button>
+            <button type="button" role="tab" id="k-more" aria-selected="false" data-img="img/page-more.png" data-cap="OPTIONS: size, eight shell colours, sound and global hotkeys.">MORE</button>
+          </div>
+          <p>The keys work like the ones on the device. Pick a page to see it.</p>
+        </div>
+        <figure class="shot panel" role="tabpanel" aria-labelledby="k-script" id="shot">
+          <img class="pixel" id="shot-img" src="img/page-script.png" alt="The STEPS page" width="448" height="468">
+          <figcaption id="shot-cap">STEPS: the reset loop, in plain words. TEST runs it once.</figcaption>
+        </figure>
+      </div>
+      <div class="wide">
+        <figure class="panel"><img class="pixel" src="img/hero.png" alt="The full device with the stats page open during a hunt" width="856" height="768"><figcaption>The full device during a hunt, with the STATS page unfolded.</figcaption></figure>
+        <figure class="panel"><img class="pixel" src="img/themes.png" alt="The device in eight shell colours" width="804" height="780"><figcaption>Eight shell colours, 1x to 4x sizes, and effects you can turn down for slower PCs.</figcaption></figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="download" aria-labelledby="h-download">
+    <div class="wrap">
+      <div class="tab-title"><h2 id="h-download">DOWNLOAD</h2><p class="dl-line">Latest version from GitHub</p></div>
+      <div class="bag">
+        <article class="item panel">
+          <span class="tag">BEST PICK</span>
+          <h3>Installer</h3>
+          <code class="name-setup">OddsBreaker-1.1.0-Setup.exe</code>
+          <p>Installs like any other app, with a Start Menu shortcut and an uninstaller. No admin rights needed.</p>
+          <a class="btn dl-setup" href="https://github.com/Tahsan228/OddsBreaker/releases/latest">GET IT <small class="size-setup"></small></a>
+        </article>
+        <article class="item panel">
+          <h3>Single .exe</h3>
+          <code class="name-exe">OddsBreaker-1.1.0.exe</code>
+          <p>The whole app in one file. Put it anywhere and run it.</p>
+          <a class="btn ghost dl-exe" href="https://github.com/Tahsan228/OddsBreaker/releases/latest">GET IT <small class="size-exe"></small></a>
+        </article>
+        <article class="item panel">
+          <h3>Portable</h3>
+          <code class="name-zip">OddsBreaker-1.1.0-Portable.zip</code>
+          <p>For USB sticks and shared PCs. Your hunts are saved next to the app.</p>
+          <a class="btn ghost dl-zip" href="https://github.com/Tahsan228/OddsBreaker/releases/latest">GET IT <small class="size-zip"></small></a>
+        </article>
+      </div>
+      <div class="note panel">
+        <b>"Windows protected your PC"?</b>
+        <p>That's SmartScreen being careful with an app that isn't code-signed yet. Click <strong>More info</strong>, then <strong>Run anyway</strong>. Each release lists SHA-256 checksums if you want to check your download.</p>
+      </div>
+      <div class="facts">
+        <div><b>New versions</b><span>It checks for an update each time it opens.</span></div>
+        <div><b>From ShinyDex?</b><span>Your old hunts come along on first start.</span></div>
+        <div><b>Hands off your game</b><span>Only presses keys and reads the screen.</span></div>
+        <div><b>Free and open</b><span>MIT licence. The code is on GitHub.</span></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p class="made">Made by <span>Tahsan</span></p>
+    <p><a href="https://github.com/Tahsan228/OddsBreaker">github.com/Tahsan228/OddsBreaker</a> · <a href="https://github.com/Tahsan228/OddsBreaker/blob/main/CHANGELOG.md">What's new</a> · <a href="https://github.com/Tahsan228/OddsBreaker/issues/new/choose">Report a bug</a></p>
+    <p>OddsBreaker is an unofficial fan project and isn't affiliated with or endorsed by Nintendo, Game Freak, Creatures or The Pokémon Company. Pokémon and all related names are trademarks of their owners. Sprites come from the PokeAPI sprite collection.</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var REPO = "Tahsan228/OddsBreaker";
+  var root = document.documentElement;
+
+  // ---- theme: BLACK / WHITE, remembered per browser
+  function setTheme(t, save) {
+    if (t) root.setAttribute("data-theme", t); else root.removeAttribute("data-theme");
+    var dark = t ? t === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+    document.getElementById("t-dark").setAttribute("aria-pressed", String(dark));
+    document.getElementById("t-light").setAttribute("aria-pressed", String(!dark));
+    if (save) { try { localStorage.setItem("ob-theme", t); } catch (e) {} }
+  }
+  var saved = null;
+  try { saved = localStorage.getItem("ob-theme"); } catch (e) {}
+  setTheme(saved === "dark" || saved === "light" ? saved : null, false);
+  document.getElementById("t-dark").addEventListener("click", function () { setTheme("dark", true); });
+  document.getElementById("t-light").addEventListener("click", function () { setTheme("light", true); });
+
+  // ---- a DS-style clock in the top bar
+  var clock = document.getElementById("clock");
+  function tick() {
+    var d = new Date();
+    clock.textContent = String(d.getHours()).padStart(2, "0") + (d.getSeconds() % 2 ? " " : ":") +
+      String(d.getMinutes()).padStart(2, "0");
+  }
+  tick(); setInterval(tick, 1000);
+
+  // ---- pixel icons drawn from tiny maps
+  var ICONS = {
+    route: "#........|##.......|.#.......|.###.....|...#.....|...####..|......#..|......###|........#",
+    dex: ".#######.|#.......#|#.#####.#|#.#...#.#|#.#####.#|#.......#|#.##.##.#|#.......#|.#######.",
+    screen: "#########|#.......#|#.#.#.#.#|#.......#|#.#####.#|#.......#|#########|...###...|..#####..",
+    bag: "...###...|..#...#..|.#######.|#.......#|#..###..#|#..#.#..#|#..###..#|#.......#|.#######."
+  };
+  document.querySelectorAll("svg[data-icon]").forEach(function (svg) {
+    var rows = (ICONS[svg.getAttribute("data-icon")] || "").split("|"), out = "";
+    rows.forEach(function (row, y) {
+      for (var x = 0; x < row.length; x++) if (row[x] === "#")
+        out += '<rect x="' + x + '" y="' + y + '" width="1" height="1"/>';
+    });
+    svg.setAttribute("shape-rendering", "crispEdges");
+    svg.setAttribute("fill", "currentColor");
+    svg.innerHTML = out;
+  });
+
+  // ---- try it: every press of A is one soft reset at full odds (1/8192).
+  // The chance of having seen a shiny by now is 1 - (8191/8192)^n.
+  var n = 0, found = 0, ODDS = 8192;
+  var tryBox = document.getElementById("try"), abtn = document.getElementById("abtn"),
+      lcdN = document.getElementById("lcd-n"), lcdC = document.getElementById("lcd-c"),
+      msg = document.getElementById("try-msg");
+  function fmt(v) { return v.toLocaleString("en-US"); }
+  function line(k) {
+    if (k === 1) return "Not shiny. Full odds take 8,192 resets on average.";
+    if (k === 10) return "Reset 10, still nothing. This is the boring part the app does for you.";
+    if (k === 25) return "Reset 25. OddsBreaker can keep this up all night and check every single one.";
+    if (k % 50 === 0) return "Reset " + fmt(k) + ". Maybe let OddsBreaker take it from here.";
+    return "Not shiny. Reset " + fmt(k) + ".";
+  }
+  abtn.addEventListener("click", function () {
+    n += 1;
+    lcdN.textContent = fmt(n);
+    var c = (1 - Math.pow((ODDS - 1) / ODDS, n)) * 100;
+    lcdC.textContent = (c < 10 ? c.toFixed(2) : c.toFixed(1)) + "%";
+    if (Math.random() < 1 / ODDS) {
+      found = n;
+      tryBox.classList.remove("hit"); void tryBox.offsetWidth; tryBox.classList.add("hit");
+      msg.innerHTML = "<b>SHINY on reset " + fmt(n) + "!</b> That was a 1 in 8,192 roll.";
+    } else if (found) {
+      msg.innerHTML = "You found one on reset " + fmt(found) + ". Still pressing? Respect.";
+    } else {
+      msg.textContent = line(n);
+    }
+  });
+  // show the press for keyboard users too (held Enter repeats, like mashing A)
+  abtn.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") abtn.classList.add("down"); });
+  abtn.addEventListener("keyup", function () { abtn.classList.remove("down"); });
+  abtn.addEventListener("blur", function () { abtn.classList.remove("down"); });
+
+  // ---- screens viewer: tabs, with the arrow keys moving between them
+  var keys = Array.prototype.slice.call(document.querySelectorAll(".keys [role=tab]"));
+  var shot = document.getElementById("shot"), img = document.getElementById("shot-img"),
+      cap = document.getElementById("shot-cap");
+  function pick(k) {
+    keys.forEach(function (o) {
+      o.setAttribute("aria-selected", String(o === k));
+      o.tabIndex = o === k ? 0 : -1;
+    });
+    img.src = k.getAttribute("data-img");
+    img.alt = "The " + k.textContent + " page";
+    cap.textContent = k.getAttribute("data-cap");
+    shot.setAttribute("aria-labelledby", k.id);
+    shot.classList.remove("flip"); void shot.offsetWidth; shot.classList.add("flip");
+  }
+  keys.forEach(function (k, i) {
+    k.tabIndex = k.getAttribute("aria-selected") === "true" ? 0 : -1;
+    k.addEventListener("click", function () { pick(k); });
+    k.addEventListener("keydown", function (e) {
+      var d = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+      if (!d) return;
+      e.preventDefault();
+      var next = keys[(i + d + keys.length) % keys.length];
+      next.focus();
+      pick(next);
+    });
+  });
+
+  // ---- real download links and sizes from the latest GitHub release
+  function mb(b) { return (b / 1048576).toFixed(1) + " MB"; }
+  function each(sel, fn) { document.querySelectorAll(sel).forEach(fn); }
+  if (window.fetch) {
+    fetch("https://api.github.com/repos/" + REPO + "/releases/latest", { headers: { Accept: "application/vnd.github+json" } })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (rel) {
+        var want = { setup: /-Setup\.exe$/i, zip: /-Portable\.zip$/i, exe: /^OddsBreaker-[\d.]+\.exe$/i };
+        Object.keys(want).forEach(function (k) {
+          var a = (rel.assets || []).filter(function (x) { return want[k].test(x.name); })[0];
+          if (!a) return;
+          each(".dl-" + k, function (el) { el.href = a.browser_download_url; });
+          each(".name-" + k, function (el) { el.textContent = a.name; });
+          each(".size-" + k, function (el) { el.textContent = mb(a.size); });
+        });
+        var v = (rel.tag_name || "").replace(/^v/i, "");
+        if (v) {
+          each(".dl-ver", function (el) { el.textContent = "V" + v + " FOR WINDOWS"; });
+          each(".dl-line", function (el) { el.textContent = "Version " + v + ", out now"; });
+        }
+      })
+      .catch(function () { /* the buttons already point at the Releases page */ });
+  }
+})();
+</script>
+</body>
+</html>

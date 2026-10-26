@@ -1,0 +1,83 @@
+name: Website
+
+# Publishes site/ to GitHub Pages: https://tahsan228.github.io/OddsBreaker/
+# Pages has to be switched on once: Settings > Pages > Source: GitHub Actions.
+# Until then this workflow builds the site and skips the deploy with a notice.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "assets/**"
+      - "docs/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build the site
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pages: read
+    outputs:
+      enabled: ${{ steps.pages.outputs.enabled }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Put the site together
+        run: |
+          mkdir -p _site/img
+          cp site/index.html _site/
+          cp assets/banner.png assets/icon-256.png _site/img/
+          cp docs/demo.gif docs/screens/*.png _site/img/
+          touch _site/.nojekyll
+          # every picture the page asks for has to be there
+          missing=0
+          for f in $(grep -o 'img/[A-Za-z0-9_.-]*' site/index.html | sort -u); do
+            if [ ! -f "_site/$f" ]; then echo "::error title=Missing picture::$f"; missing=1; fi
+          done
+          exit $missing
+
+      - name: Is GitHub Pages switched on?
+        id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          status=$(curl -s -o /dev/null -w '%{http_code}' \
+            -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/pages")
+          if [ "$status" = "404" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Website not published yet::Switch on GitHub Pages (Settings > Pages > Source: GitHub Actions), then run the Website workflow again."
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/upload-pages-artifact@v5
+        if: steps.pages.outputs.enabled == 'true'
+        with:
+          path: _site
+
+  deploy:
+    name: Publish
+    needs: build
+    if: needs.build.outputs.enabled == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
