@@ -12,11 +12,12 @@ import traceback
 
 import tkinter as tk
 
-from . import APP_NAME, __version__, paths
-from .art import (DEX_H, DPAD_XY, LCD_IN, LEDS, LEFT_W, LENS_C, MINIS, PANEL_W, PSCREEN, SCREEN,
-                  START_C, STATUS, app_icon, battle_base, draw_left_shell, draw_right_shell,
-                  icon_bitmap, led_bitmap, lens_glass, lens_glint, logo_frames, placeholder_bitmap,
-                  ray_frames, screen_bg, star_bitmap, start_ring_frames)
+from . import APP_NAME, RELEASES_URL, __version__, paths
+from .art import (CONTENT, DEX_H, DPAD_XY, FACE_XY, KEY_GAP, KEY_H, KEY_W, KEY_X0, KEYS_Y, LCD_IN,
+                  LEDS, LEFT_W, LENS_C, MINIS, PANEL_W, PSCREEN, SCREEN, START_C, STATUS, app_icon,
+                  battle_base, draw_left_shell, draw_right_shell, icon_bitmap, led_bitmap, lens_glass,
+                  lens_glint, logo_frames, placeholder_bitmap, ray_frames, screen_bg, star_bitmap,
+                  start_ring_frames)
 from .config import IS_WIN, key_label
 from .detect import usable_refs
 from .dexnames import dex_no, poke_display
@@ -28,9 +29,10 @@ from .pages_setup import SetupPages
 from .pixel import FONT, KEY_COLOR, PAL, TINY, apply_theme, draw_text, draw_text_grad, hexc
 from .script import compile_script, keys_used
 from .sounds import Sounds
-from .sprites import SpriteCache
+from .sprites import MAIN_TARGET, SpriteCache, sprite_scale
 from .stats import chance, fmt_int, fmt_time, hunt_rate
 from .store import (Store, now_iso, record_count, record_loop, record_score, record_session)
+from .system import open_url
 from .ui import fx
 from .ui.toolkit import (Button, DialogBox, DPad, Frames, Group, IconButton, ImageBox,
                          Label, Marquee, MenuBox, MiniScreen, Pic, RoundButton, Sparkles,
@@ -72,6 +74,7 @@ class App(SetupPages, MorePages):
         self.sounds = Sounds()
         self.sounds.mode = self.settings.get("sound", "ALL")
         self.sounds.volume = self.settings.get("volume", "MED")
+        self.sounds.start()
         self.notifier = Notifier(self.q)
         self.stream = StreamFiles()
         self.hunter = None
@@ -133,17 +136,22 @@ class App(SetupPages, MorePages):
         self.idle_next = {"glint": time.monotonic() + 3.0, "logo": time.monotonic() + 1.4}
         self.borderless = (IS_WIN and not classic and self.settings.get("frame") == "POKEDEX")
         self.S = self.pick_scale()
+        self.boot = None
+        self.after_boot = []
+        if self.first_run or not self.data.get("welcomed"):
+            self.data["welcomed"] = True
+            self.after_boot.append((200, self.welcome))
+            self.changed()
+        elif not self.settings.get("legacy_checked"):
+            self.after_boot.append((400, self.offer_legacy_import))
+        if check_updates and self.settings.get("updates", True):
+            # every start: a new version shows up the first time you open it
+            self.after_boot.append((1200, self.check_updates_on_start))
         self.setup_window()
         self.build(boot=True)
         self.start_hotkeys()
-        if self.first_run or not self.data.get("welcomed"):
-            self.data["welcomed"] = True
-            self.root.after(1300, self.welcome)
-            self.changed()
-        elif not self.settings.get("legacy_checked"):
-            self.root.after(1500, self.offer_legacy_import)
-        if check_updates and self.settings.get("updates", True):
-            self.root.after(4000, self.maybe_check_updates)
+        if self.boot is None:
+            self.boot_finished()
 
     # ------------------------------------------------------------ window
     def pick_scale(self):
@@ -270,15 +278,33 @@ class App(SetupPages, MorePages):
         self.build_panel()
         self.build_left()
         self.particles = fx.Particles(ui)
-        self.boot_t0 = time.monotonic() if (boot and self.fx_on("lite")) else -100.0
         ui.anims.append(self.poll)
         self.load_profile_ui()
         if self.panel_pos > 0:
             self.open_tab(self.tab, quiet=True)
-        ui.start()
         if boot and self.fx_on("lite"):
-            self.boot_sequence()
+            from .boot import Boot
+            self.boot = Boot(self, lid=self.fx_on("full"))
+        ui.start()
         self.root.after(2500, self.prepare_rays)
+
+    @property
+    def booting(self):
+        return self.boot is not None and not self.boot.done
+
+    def skip_boot(self):
+        if self.booting:
+            self.boot.finish(chime=True)
+
+    def boot_finished(self):
+        """The start-up show is over (or was skipped, or effects are off)."""
+        self.idle_next["logo"] = time.monotonic() + 0.4
+        tasks, self.after_boot = self.after_boot, []
+        for delay, fn in tasks:
+            self.root.after(delay, fn)
+
+    def screen_color(self):
+        return hexc("#0B1220") if self.screen_mode() == "live" else hexc("#F4FBEF")
 
     def build_left(self):
         ui, g, P = self.ui, self.g_left, PAL
@@ -328,15 +354,15 @@ class App(SetupPages, MorePages):
         self.scr_bg = Frames(ui, g, sx, sy, [day_base, screen_bg(sw, sh, "night"), day])
         self.rays = None
         self.rays_player = None
-        self.sprite = ImageBox(ui, g, sx, sy + 12, sw, sh - 28, cb=lambda x, y: self.cycle_view(),
+        self.sprite = ImageBox(ui, g, sx, sy + 14, sw, sh - 30, cb=lambda x, y: self.cycle_view(),
                                hint="Click: normal / shiny / live view", anchor="bottom")
         stars = [star_bitmap(i, P["gold"], P["white"]) for i in range(4)]
         self.sparkles = Sparkles(ui, g, sx, sy + 10, sw, sh - 22,
                                  [(22, 16), (118, 24), (112, 64), (30, 62), (98, 10), (62, 76)], stars)
-        self.scr_head = Label(ui, g, sx + 4, sy + 3, 104, 9, "", P["scr_ink"])
-        self.scr_badge = Label(ui, g, sx + sw - 40, sy + 4, 36, 7, "", P["scr_dim"], TINY, align="right")
-        self.scr_msg = TextBlock(ui, g, sx + 10, sy + 40, sw - 20, 30, "", P["scr_ink"])
-        self.scr_foot = Label(ui, g, sx + 4, sy + sh - 9, sw - 8, 7, "", P["scr_dim"], TINY)
+        self.scr_head = Label(ui, g, sx + 6, sy + 4, 100, 9, "", P["scr_ink"])
+        self.scr_badge = Label(ui, g, sx + sw - 42, sy + 5, 36, 7, "", P["scr_dim"], TINY, align="right")
+        self.scr_msg = TextBlock(ui, g, sx + 12, sy + 40, sw - 24, 30, "", P["scr_ink"])
+        self.scr_foot = Label(ui, g, sx + 6, sy + sh - 10, sw - 12, 7, "", P["scr_dim"], TINY)
         self.banner = Pic(ui, g, sx + (sw - 92) // 2, sy + 14, self.banner_bitmap())
         self.banner.show(False)
         self.dialog = DialogBox(ui, g, sx + 2, sy + sh - 40, sw - 4, 38)
@@ -353,14 +379,15 @@ class App(SetupPages, MorePages):
                                      self.start_hint(), r=16)
         self.dpad = DPad(ui, g, DPAD_XY[0], DPAD_XY[1], self.on_dpad,
                          "◀ ▶ switch hunt   ▲ add 1   ▼ take 1 off")
+        (fx1, fy1), (fx2, fy2), (fx3, fy3), (fx4, fy4) = FACE_XY
         self.face_btns = {
-            "setup": Button(ui, g, 54, 287, 38, 16, "SETUP", lambda: self.toggle_panel("hunt"),
+            "setup": Button(ui, g, fx1, fy1, 38, 16, "SETUP", lambda: self.toggle_panel("hunt"),
                             "blue", "Unfold the setup panel for this hunt"),
-            "dex": Button(ui, g, 96, 287, 38, 16, "DEX", lambda: self.toggle_panel("dex"),
+            "dex": Button(ui, g, fx2, fy2, 38, 16, "DEX", lambda: self.toggle_panel("dex"),
                           "blue", "All your hunts"),
-            "log": Button(ui, g, 54, 306, 38, 16, "LOG", lambda: self.toggle_panel("log"),
+            "log": Button(ui, g, fx3, fy3, 38, 16, "LOG", lambda: self.toggle_panel("log"),
                           "blue", "Shinies you've found"),
-            "view": Button(ui, g, 96, 306, 38, 16, "VIEW", self.cycle_view,
+            "view": Button(ui, g, fx4, fy4, 38, 16, "VIEW", self.cycle_view,
                            "blue", "Screen: normal / shiny / live view"),
         }
         x, y, w, h = STATUS
@@ -381,22 +408,24 @@ class App(SetupPages, MorePages):
         ui, g, P = self.ui, self.g_panel, PAL
         self.panel_shell = Pic(ui, g, 0, 0, draw_right_shell())
         # page header
-        self.hdr_icon = Pic(ui, g, 20, 57, icon_bitmap("hunt", P["cyan"]))
-        self.hdr_title = Label(ui, g, 31, 57, 120, 8, "", P["cyan"])
-        self.hdr_sub = Label(ui, g, 120, 58, 52, 6, "", P["dim"], TINY, align="right")
-        self.help_btn = IconButton(ui, g, 177, 55, "?", self.open_help, "Help for this page")
-        self.fold_btn = IconButton(ui, g, 191, 55, "×", self.close_panel, "Fold the panel (Esc)")
-        line = Bitmap(180, 1)
-        for i in range(180):
-            if i < 120 or (i % 2 == 0 and i < 160) or (i % 4 == 0):
+        cx0, _cy0, cw, _ch = CONTENT
+        right = cx0 + cw
+        self.hdr_icon = Pic(ui, g, cx0, 60, icon_bitmap("hunt", P["cyan"]))
+        self.hdr_title = Label(ui, g, cx0 + 11, 60, 120, 8, "", P["cyan"])
+        self.hdr_sub = Label(ui, g, right - 86, 61, 54, 6, "", P["dim"], TINY, align="right")
+        self.help_btn = IconButton(ui, g, right - 28, 58, "?", self.open_help, "Help for this page")
+        self.fold_btn = IconButton(ui, g, right - 13, 58, "×", self.close_panel, "Fold the panel (Esc)")
+        line = Bitmap(cw, 1)
+        for i in range(cw):
+            if i < cw * 2 // 3 or (i % 2 == 0 and i < cw * 8 // 9) or (i % 4 == 0):
                 line.px(i, 0, P["line"])
-        Pic(ui, g, 20, 68, line)
+        Pic(ui, g, cx0, 73, line)
         # keys
         self.tab_btns = {}
         for i, (key, label) in enumerate(TABS):
             col, row = i % 5, i // 5
-            self.tab_btns[key] = Button(ui, g, 10 + col * 40, 258 + row * 19, 38, 17, label,
-                                        (lambda k=key: self.open_tab(k)), "blue", TAB_HINTS[key],
+            self.tab_btns[key] = Button(ui, g, KEY_X0 + col * (KEY_W + KEY_GAP), KEYS_Y[row], KEY_W, KEY_H,
+                                        label, (lambda k=key: self.open_tab(k)), "blue", TAB_HINTS[key],
                                         FONT)
         (ax, ay, aw, ah), (bx, by, bw, bh) = MINIS
         self.mini_l = MiniScreen(ui, g, ax + 3, ay + 3, aw - 6, ah - 6, cb=self.goto_next_step,
@@ -419,7 +448,7 @@ class App(SetupPages, MorePages):
         self.build_picker()
         self.build_overlay()
         x, y, w, h = PSCREEN
-        self.blinds = fx.Blinds(ui, g, x, 70, w, y + h - 70, P["dark"], bands=9)
+        self.blinds = fx.Blinds(ui, g, x, 75, w, y + h - 75, P["dark"], bands=9)
 
     # -- helpers for building pages
     def cap(self, group, x, y, text, w=180, color=None, align="left"):
@@ -505,13 +534,11 @@ class App(SetupPages, MorePages):
         return False
 
     def animate(self, now):
-        boot = now - self.boot_t0
+        booting = self.booting
         blink = int(now * 6) % 2 == 0
         lv = {"r": 0, "y": 0, "g": 0}
-        if boot < 1.1:
-            k = int(boot / 0.16)
-            lv = {"r": 2 if k in (1, 4, 6) else 0, "y": 2 if k in (2, 4, 6) else 0,
-                  "g": 2 if k in (3, 4, 6) else 0}
+        if booting:
+            lv = self.boot.leds or lv
         elif self.alert or self.celebrating:
             ph = int(now * 10) % 3
             lv = {"r": 2 if ph == 0 else 1, "y": 2 if ph == 1 else 1, "g": 2 if ph == 2 else 1}
@@ -529,7 +556,7 @@ class App(SetupPages, MorePages):
         for k, w in self.leds.items():
             w.set_frame(lv[k])
         # idle shine on the lens and the logo
-        if self.fx_on("lite"):
+        if self.fx_on("lite") and not booting:
             if now >= self.idle_next["glint"]:
                 self.idle_next["glint"] = now + 6.5
                 if self.hunter is None and not self.alert:
@@ -537,12 +564,12 @@ class App(SetupPages, MorePages):
             if now >= self.idle_next["logo"]:
                 self.idle_next["logo"] = now + 9.0
                 self.play_logo()
-        if self.alert or self.celebrating:
+        if booting:
+            self.lens.set_frame(self.boot.lens)
+        elif self.alert or self.celebrating:
             self.lens.set_frame(5 if blink else 2)
         elif self.hstate == "running":
             self.lens.set_frame(int((math.sin(now * 3.0) + 1) / 2 * 5.99))
-        elif boot < 1.1:
-            self.lens.set_frame(min(5, int(boot * 6)))
         elif self.glint_t0 is not None and now - self.glint_t0 < 7 / 22.0:
             self.lens.set_frame(6 + int((now - self.glint_t0) * 22))
         else:
@@ -684,20 +711,15 @@ class App(SetupPages, MorePages):
                 self.status.set("READY! PRESS START" + (" OR %s" % k if k else ""), P["status_ink"])
 
     # ------------------------------------------------------------ screen
-    def fit_photo(self, bmp, fw=None, fh=None, box_w=None, box_h=None):
-        """Biggest crisp zoom that fits (1.5x allowed for big sprites)."""
+    def fit_photo(self, bmp, fw=None, fh=None, box_w=None, box_h=None, target=MAIN_TARGET):
+        """A Pokemon sprite scaled so every species looks about the same size."""
         fw, fh = fw or bmp.w, fh or bmp.h
-        bw = (box_w or SCREEN[2]) * self.S
-        bh = (box_h or (SCREEN[3] - 28)) * self.S
-        fit = min(bw / float(fw), bh / float(fh))
-        if fit >= 2:
-            return bmp.photo(int(fit))
-        if fit >= 1.5:
+        k = sprite_scale(fw, fh, self.S, target, box_w or SCREEN[2], box_h or (SCREEN[3] - 30))
+        if k == 1.5:
             return bmp.photo(3).subsample(2)
-        if fit >= 1:
-            return bmp.photo(1)
-        k = int(math.ceil(1 / fit))
-        return bmp.photo(1).subsample(k)
+        if k >= 1:
+            return bmp.photo(int(k))
+        return bmp.photo(1).subsample(int(round(1 / k)))
 
     def sprite_photo(self, name, shiny):
         """Still sprite photo, or the mystery egg while it downloads."""
@@ -801,12 +823,16 @@ class App(SetupPages, MorePages):
         self.sparkles.set_on(mode in ("shiny", "alert"))
         if p.get("found"):
             f = p["found"]
-            foot = "CAUGHT AFTER %s RESETS IN %s" % (fmt_int(f["encounters"]), fmt_time(f["seconds"]))
-        elif self.hunter is not None:
-            foot = "%s  ·  %s" % (p["emulator"].upper(), p["game"])
+            n, t = fmt_int(f["encounters"]), fmt_time(f["seconds"])
+            options = ("CAUGHT AFTER %s RESETS IN %s" % (n, t), "CAUGHT IN %s RESETS · %s" % (n, t))
         else:
-            foot = "%s  ·  %s" % (p["game"], p["emulator"].upper())
-        self.scr_foot.set(foot, dim)
+            emu, game = p["emulator"].upper(), p["game"]
+            pair = (emu, game) if self.hunter is not None else (game, emu)
+            options = ("%s  ·  %s" % pair, "%s · %s" % pair,
+                       "%s · %s" % tuple(s.split("/")[0] if s == emu else s for s in pair))
+        # the longest wording that fits, so it never ends in "..."
+        w = self.scr_foot.w
+        self.scr_foot.set(next((s for s in options if TINY.width(s) <= w), options[-1]), dim)
 
     def transition(self, kind=None):
         """Retro block-fizzle into whatever the screen shows now."""
@@ -1056,8 +1082,6 @@ class App(SetupPages, MorePages):
             self.open_panel(key)
             return
         changed = key != self.tab
-        if changed and not quiet:
-            self.sound("click")
         self.tab = key
         self.ui.set_focus(None)
         self.close_overlay()
@@ -1545,14 +1569,6 @@ class App(SetupPages, MorePages):
         return None
 
     # ------------------------------------------------------------ boot & extras
-    def boot_sequence(self):
-        sx, sy, sw, sh = SCREEN
-        self.sound("boot")
-        self.lcd.self_test(0.7)
-        fx.CRT(self.ui, self.g_left, sx, sy, sw, sh,
-               on_done=lambda: self.fizzle.play(hexc("#F4FFF0"), 0.4))
-        self.idle_next["logo"] = time.monotonic() + 0.5
-
     def welcome(self):
         self.say("Hi! I'm %s. Let's set up your first hunt!" % APP_NAME, "good")
         self.open_panel("hunt")
@@ -1579,11 +1595,11 @@ class App(SetupPages, MorePages):
                     self.stream.write_image("sprite.png", f.read())
                 self.stream.last["_sprite"] = pid
 
-    def maybe_check_updates(self):
-        today = datetime.date.today().isoformat()
-        if self.settings.get("last_update_check") == today:
+    def check_updates_on_start(self):
+        """Runs every time the app opens (unless updates are switched off)."""
+        if not self.settings.get("updates", True):
             return
-        self.settings["last_update_check"] = today
+        self.settings["last_update_check"] = datetime.date.today().isoformat()
         self.changed()
         check_for_update(self.q)
 
@@ -1591,7 +1607,33 @@ class App(SetupPages, MorePages):
         self.update_info = (tag, url)
         self.update_ready()
         self.refresh_about()
-        self.say("Update available: %s. Get it from MORE > ABOUT." % tag, "good", duration=6)
+        manual, self.manual_update_check = self.manual_update_check, False
+        if manual and self.overlay_open():
+            return          # the About page now shows a GET button
+        quiet = (self.hunter is not None or self.alert or self.celebrating or self.overlay_open()
+                 or self.settings.get("update_snoozed") == tag)
+        if quiet:
+            self.say("Update ready: %s. Get it from MORE > ABOUT." % tag, "good", duration=6)
+        else:
+            self.offer_update(tag, url)
+
+    def offer_update(self, tag, url):
+        def get():
+            self.close_overlay()
+            open_url(url or RELEASES_URL)
+
+        def later():
+            self.settings["update_snoozed"] = tag
+            self.changed()
+            self.close_overlay()
+            self.say("No problem. It's waiting under MORE > ABOUT.", "info", duration=3)
+
+        self.sound("notify")
+        self.show_overlay("UPDATE READY!",
+                          ["@%s %s IS OUT\n\nDownload it and install it over this one. Your hunts, "
+                           "settings and shinies stay right where they are.\n\n~You have %s." %
+                           (APP_NAME.upper(), tag.lstrip("vV"), __version__)],
+                          [("DOWNLOAD", get, "go"), ("LATER", later, "dark")])
 
     def on_update_none(self, typ, args):
         if self.manual_update_check:
@@ -1662,6 +1704,7 @@ class App(SetupPages, MorePages):
                 pass
         self.save()
         self.ui.alive = False
+        self.sounds.close()
         try:
             self.root.destroy()
         except tk.TclError:

@@ -29,7 +29,7 @@ paths.init()
 
 from oddsbreaker import app as app_mod, mini as mini_mod, pages_more  # noqa: E402
 from oddsbreaker.app import App  # noqa: E402
-from oddsbreaker.art import LEFT_W, PANEL_W  # noqa: E402
+from oddsbreaker.art import DEX_H, LEFT_W, PANEL_W, PSCREEN  # noqa: E402
 from oddsbreaker.detect import make_ref  # noqa: E402
 from oddsbreaker.imaging import Bitmap, Frame  # noqa: E402
 from oddsbreaker.pixel import FONT, KEY_COLOR, THEME_NAMES, draw_text  # noqa: E402
@@ -138,6 +138,12 @@ class BattlePlatform(StubPlatform):
         StubPlatform.__init__(self)
         self.windows = [(1, "mGBA - Pokemon FireRed Version"), (2, "Notes.txt - Notepad")]
         self.scenes = {}
+
+    def warm(self):
+        """Build both scenes now, so the sprites are never fetched mid-film."""
+        for key in (False, True):
+            if key not in self.scenes:
+                self.scenes[key] = to_bgra(battle(FRLG, 4, "CHARMANDER", 5, key))
 
     def scene(self):
         key = bool(self.shiny)
@@ -297,6 +303,7 @@ def main(out):
     for mod in (app_mod, mini_mod, pages_more):
         mod.hunt_rate = long_run_rate
     plat = BattlePlatform()
+    plat.warm()
 
     def save(img, name):
         img = cut_bg(img)
@@ -307,12 +314,15 @@ def main(out):
     make_save(plat)
     root, app, d = open_app(plat)
     S = app.S
-    dev = (192 * S, 352 * S)
-    d.wait_for(lambda: app.sprites.anim(4, False) and app.sprites.anim(4, True), 30)
+    dev = (LEFT_W * S, DEX_H * S)
+    ready = d.wait_for(lambda: (app.sprites.anim(4, False) and app.sprites.anim(4, True)
+                                and app.sprites.lookup("charmander")), 60)
+    assert ready, "the Charmander sprites did not download"
     d.pump(3.0)
     app.start_hunt()
     d.pump(2.0)
-    page = tuple(v * S for v in (LEFT_W + 6, 46, LEFT_W + PANEL_W - 6, 254))
+    px, py, pw, ph = PSCREEN   # the panel's screen, with a little of the shell around it
+    page = tuple(v * S for v in (LEFT_W + px - 6, py - 6, LEFT_W + px + pw + 6, py + ph + 6))
     for tab in ("stats", "script", "check", "alert", "dex", "log", "more"):
         if app.panel_open:
             app.open_tab(tab)
@@ -327,6 +337,7 @@ def main(out):
     app.close_panel()
     d.pump(0.6)
     app.enter_mini()
+    assert d.wait_for(lambda: app.mini.anim, 10), "the mini window has no sprite"
     d.pump(1.5)
     save(grab(app.mini.top), "mini")
     app.exit_mini()
@@ -335,7 +346,7 @@ def main(out):
     close(app)
     keep = [app]  # its Tk images must outlive the next window
 
-    # --- the demo: boot, start, hunt, shiny, caught
+    # --- the demo: the lid opens, start, hunt, shiny, caught
     plat.shiny = False
     make_save(plat, LOOP)
     root, app, d = open_app(plat)
@@ -354,7 +365,9 @@ def main(out):
             frames[-1][1] = time.monotonic() - t
 
     d.pump(0.1)
-    film(3.0)
+    film(6.0, until=lambda: not app.booting)   # the lid opens and the screen boots
+    assert not app.booting, "the start-up show did not finish"
+    film(1.2)
     while frames and max(frames[0][0].convert("L").getextrema()) < 40:
         frames.pop(0)  # window not drawn yet
     d.click_w(app.start_btn, wait=0)

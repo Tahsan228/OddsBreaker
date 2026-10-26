@@ -4,6 +4,7 @@ import re
 
 import tkinter as tk
 
+from .art import PSCREEN
 from .config import (EMU_NAMES, GAME_NAMES, GAMES, ODDS, TEMPLATE_NAMES, detect_emulator,
                      emulator_preset, norm_key)
 from .detect import (is_shiny_score, make_ref, matching_refs, score_frame, suggest_threshold,
@@ -19,7 +20,8 @@ from .ui.toolkit import (Blocker, Button, Cycler, Group, ImageBox, KeySlot, Labe
                          Pic, Stepper, TextBlock, TextInput, row_highlight, step_pct)
 from .ui.widgets import AreaSelector, EmbedText, ScriptEditor, Sparkline, Swatches, Thumbs
 
-X0, W0 = 20, 180
+X0, W0 = 24, 188      # page content: left edge and width (art pixels)
+X1 = X0 + W0          # right edge
 
 
 def frame_box(w, h, col):
@@ -32,32 +34,32 @@ class SetupPages(object):
     # ------------------------------------------------------------ HUNT
     def build_tab_hunt(self):
         ui, t, P = self.ui, self.tabs["hunt"], PAL
-        self.cap(t, X0, 74, "POKEMON")
-        self.in_poke = TextInput(ui, t, X0, 81, W0, 15, placeholder="Type a Pokemon...", maxlen=24,
+        self.cap(t, X0, 80, "POKEMON")
+        self.in_poke = TextInput(ui, t, X0, 88, W0, 15, placeholder="Type a Pokemon...", maxlen=24,
                                  on_change=self.poke_typed, on_enter=self.poke_enter,
                                  on_keynav=self.poke_nav, hint="Type the Pokemon you're hunting")
         self.in_poke.on_blur_cb = self.poke_blur
-        self.cap(t, X0, 101, "GAME")
-        self.cy_game = Cycler(ui, t, X0, 108, W0, 15, [], None, self.set_game,
+        self.cap(t, X0, 111, "GAME")
+        self.cy_game = Cycler(ui, t, X0, 119, W0, 15, [], None, self.set_game,
                               "Which game? (sets the shiny odds)")
-        self.cap(t, X0, 128, "SHINY ODDS")
-        self.cy_odds = Cycler(ui, t, X0, 135, W0, 15, [], None, self.set_odds,
+        self.cap(t, X0, 142, "SHINY ODDS")
+        self.cy_odds = Cycler(ui, t, X0, 150, W0, 15, [], None, self.set_odds,
                               "Full odds, Shiny Charm, Masuda...")
-        self.cap(t, X0, 155, "EMULATOR")
-        self.cy_emu = Cycler(ui, t, X0, 162, W0, 15, [(n, n) for n in EMU_NAMES], None,
+        self.cap(t, X0, 173, "EMULATOR")
+        self.cy_emu = Cycler(ui, t, X0, 181, W0, 15, [(n, n) for n in EMU_NAMES], None,
                              self.set_emu, "Your emulator (loads its usual keys)")
-        self.cap(t, X0, 182, "EMULATOR WINDOW", 100)
-        self.lb_win = Label(ui, t, 120, 182, 80, 6, "", P["dim"], TINY, align="right")
-        self.cy_win = Cycler(ui, t, X0, 189, 144, 15, [], None, self.set_window,
+        self.cap(t, X0, 204, "EMULATOR WINDOW", 100)
+        self.lb_win = Label(ui, t, X1 - 88, 204, 88, 6, "", P["dim"], TINY, align="right")
+        self.cy_win = Cycler(ui, t, X0, 212, W0 - 42, 15, [], None, self.set_window,
                              "Pick your emulator's window (it needs to be open)")
-        Button(ui, t, 167, 189, 33, 15, "FIND", self.refresh_windows, "dark",
+        Button(ui, t, X1 - 38, 212, 38, 15, "FIND", self.refresh_windows, "dark",
                "Look for open windows again", TINY)
-        TextBlock(ui, t, X0, 212, W0, 30,
+        TextBlock(ui, t, X0, 238, W0, 26,
                   "~Tip: keep OddsBreaker next to your emulator, not on top of the game. Run the "
                   "emulator in a window, not exclusive fullscreen.", P["faint"], TINY, 8)
         self.sugg = []
         self.sugg_sel = 0
-        self.suggest = ListBox(ui, t, X0, 97, W0, 55, 11, self.draw_suggest, None)
+        self.suggest = ListBox(ui, t, X0, 104, W0, 55, 11, self.draw_suggest, None)
         self.suggest.on_press = self.suggest_press
         self.suggest.show(False)
 
@@ -225,21 +227,21 @@ class SetupPages(object):
     # ------------------------------------------------------------ KEYS
     def build_tab_keys(self):
         ui, t, P = self.ui, self.tabs["keys"], PAL
-        self.lb_keys_emu = Label(ui, t, X0, 74, W0, 6, "", P["dim"], TINY)
+        self.lb_keys_emu = Label(ui, t, X0, 80, W0, 6, "", P["dim"], TINY)
         self.key_slots = {}
         cols = (["A", "B", "X", "Y", "L", "R", "START"],
                 ["SELECT", "UP", "DOWN", "LEFT", "RIGHT", "RESET", "LOADSTATE"])
         for c, names in enumerate(cols):
             for r, name in enumerate(names):
-                y = 83 + r * 18
-                lx, sx, sw = (X0, 48, 50) if c == 0 else (104, 142, 58)
+                y = 92 + r * 20
+                lx, sx, sw = (X0, X0 + 30, 52) if c == 0 else (X0 + 92, X0 + 130, W0 - 130)
                 Label(ui, t, lx, y + 5, sx - lx - 2, 6, name, P["dim"], TINY)
                 self.key_slots[name] = KeySlot(
                     ui, t, sx, y, sw, 15, "", (lambda v, n=name: self.set_key(n, v)),
                     "Click, then press the key your emulator uses for %s. Right-click clears." % name)
-        self.btn_keys_reset = Button(ui, t, X0, 212, W0, 15, "LOAD DEFAULTS", self.reset_keys,
+        self.btn_keys_reset = Button(ui, t, X0, 236, W0, 15, "LOAD DEFAULTS", self.reset_keys,
                                      "dark", "Put back your emulator's usual keys")
-        self.lb_keys_warn = Label(ui, t, X0, 233, W0, 7, "", P["yellow"], TINY)
+        self.lb_keys_warn = Label(ui, t, X0, 257, W0, 7, "", P["yellow"], TINY)
 
     def set_key(self, name, value):
         p = self.profile
@@ -290,21 +292,21 @@ class SetupPages(object):
     # ------------------------------------------------------------ STEPS
     def build_tab_script(self):
         ui, t, P = self.ui, self.tabs["script"], PAL
-        self.cy_tpl = Cycler(ui, t, X0, 74, 84, 15, [(n, n) for n in TEMPLATE_NAMES],
+        self.cy_tpl = Cycler(ui, t, X0, 80, W0 - 102, 15, [(n, n) for n in TEMPLATE_NAMES],
                              None, None, "Ready-made step lists")
-        self.btn_tpl = Button(ui, t, 107, 74, 29, 15, "LOAD", self.load_template, "dark",
+        self.btn_tpl = Button(ui, t, X1 - 98, 80, 30, 15, "LOAD", self.load_template, "dark",
                               "Replace your steps with this template", TINY)
-        self.btn_txt = Button(ui, t, 139, 74, 29, 15, "TEXT", self.toggle_text_mode, "dark",
+        self.btn_txt = Button(ui, t, X1 - 64, 80, 30, 15, "TEXT", self.toggle_text_mode, "dark",
                               "Edit the steps as text instead", TINY)
-        self.btn_test = Button(ui, t, 171, 74, 29, 15, "TEST", self.test_loop, "go",
+        self.btn_test = Button(ui, t, X1 - 30, 80, 30, 15, "TEST", self.test_loop, "go",
                                "Play the steps once to try them (nothing gets counted)", TINY)
-        self.editor = ScriptEditor(ui, t, X0, 93, W0, 104, self)
+        self.editor = ScriptEditor(ui, t, X0, 102, W0, 108, self)
         for i, (lab, op) in enumerate((("+PRESS", "press"), ("+HOLD", "hold"),
                                        ("+WAIT", "wait"), ("+CHECK", "check"))):
-            Button(ui, t, X0 + i * 46, 201, 42, 15, lab, (lambda o=op: self.add_step(o)), "dark",
+            Button(ui, t, X0 + i * 48, 217, 44, 15, lab, (lambda o=op: self.add_step(o)), "dark",
                    "Add a %s step after the selected one" % op.upper(), TINY)
-        self.lb_script = Label(ui, t, X0, 222, W0, 7, "", P["green"], TINY)
-        self.lb_script2 = Label(ui, t, X0, 232, W0, 7, "", P["dim"], TINY)
+        self.lb_script = Label(ui, t, X0, 241, W0, 7, "", P["green"], TINY)
+        self.lb_script2 = Label(ui, t, X0, 252, W0, 7, "", P["dim"], TINY)
         S = self.S
         self.txt = tk.Text(self.root, bg="#070C16", fg="#EAF2FF", insertbackground="#5CE1E6",
                            selectbackground="#273A57", relief="flat", bd=0, highlightthickness=0,
@@ -314,7 +316,7 @@ class SetupPages(object):
         self.txt.tag_configure("cmt", foreground="#8299B8")
         self.txt.tag_configure("num", foreground="#FFD93B")
         self.txt.bind("<<Modified>>", self.text_modified)
-        self.txt_box = EmbedText(ui, t, X0, 93, W0, 123, self.txt)
+        self.txt_box = EmbedText(ui, t, X0, 102, W0, 130, self.txt)
         self.txt_box.forced_hidden = True
         self.txt_box.apply_state()
 
@@ -461,33 +463,39 @@ class SetupPages(object):
     def build_picker(self):
         ui, P = self.ui, PAL
         g = self.g_pick = Group(ui, self.g_panel, visible=False)
-        Blocker(ui, g, 12, 52, Bitmap(196, 196, P["night"]))
-        box = Bitmap(176, 176)
-        box.rrect(0, 0, 176, 176, 6, P["cyan_dk"])
-        box.rrect(1, 1, 174, 174, 5, P["dark2"])
-        Blocker(ui, g, 22, 62, box)
-        Label(ui, g, 32, 70, 150, 8, "BUTTONS TO PRESS", P["cyan"])
+        px, py, pw, ph = PSCREEN
+        Blocker(ui, g, px, py, Bitmap(pw, ph, P["night"]))
+        bw_, bh_ = pw - 20, ph - 20
+        box = Bitmap(bw_, bh_)
+        box.rrect(0, 0, bw_, bh_, 6, P["cyan_dk"])
+        box.rrect(1, 1, bw_ - 2, bh_ - 2, 5, P["dark2"])
+        Blocker(ui, g, px + 10, py + 10, box)
+        x0, inner = px + 20, bw_ - 20          # content inside the box
+        Label(ui, g, x0, py + 20, 150, 8, "BUTTONS TO PRESS", P["cyan"])
         self.pick_btns = {}
         labels = [("A", "A"), ("B", "B"), ("X", "X"), ("Y", "Y"), ("L", "L"), ("R", "R"),
                   ("START", "START"), ("SELECT", "SELECT"), ("UP", "▲ UP"), ("DOWN", "▼ DOWN"),
                   ("LEFT", "◀ LEFT"), ("RIGHT", "▶ RIGHT"), ("RESET", "RESET"),
                   ("LOADSTATE", "LOADSTATE")]
+        cw = (inner - 3 * 4) // 4
         for i, (tok, lab) in enumerate(labels):
             c, r = i % 4, i // 4
             if r < 3:
-                bx, bw = 32 + c * 39, 36
+                bx, bw = x0 + c * (cw + 4), cw
             else:
-                bx, bw = 32 + c * 78, 75
-            self.pick_btns[tok] = Button(ui, g, bx, 84 + r * 18, bw, 15, lab,
+                bx, bw = x0 + c * (2 * cw + 8), 2 * cw + 4
+            self.pick_btns[tok] = Button(ui, g, bx, py + 36 + r * 20, bw, 16, lab,
                                          (lambda k=tok: self.picker_toggle(k)), "dark", "", TINY)
-        self.cap(g, 32, 160, "OR ANY KEY:", 50)
-        self.pick_key = KeySlot(ui, g, 80, 156, 108, 15, "", self.picker_rawkey,
+        ky = py + 36 + 4 * 20 + 10
+        self.cap(g, x0, ky + 5, "OR ANY KEY:", 50)
+        self.pick_key = KeySlot(ui, g, x0 + 52, ky, inner - 52, 15, "", self.picker_rawkey,
                                 "Click, then press any keyboard key to add it")
-        self.lb_pick = Label(ui, g, 32, 177, 156, 9, "", P["ink"])
-        self.lb_pick_hint = Label(ui, g, 32, 190, 156, 6, "PICKED BUTTONS ARE PRESSED TOGETHER",
+        self.lb_pick = Label(ui, g, x0, ky + 25, inner, 9, "", P["ink"])
+        self.lb_pick_hint = Label(ui, g, x0, ky + 38, inner, 6, "PICKED BUTTONS ARE PRESSED TOGETHER",
                                   P["faint"], TINY)
-        Button(ui, g, 32, 211, 76, 17, "OK", self.picker_ok, "go")
-        Button(ui, g, 112, 211, 76, 17, "CANCEL", self.picker_cancel, "dark")
+        half = (inner - 6) // 2
+        Button(ui, g, x0, py + bh_ - 18, half, 17, "OK", self.picker_ok, "go")
+        Button(ui, g, x0 + half + 6, py + bh_ - 18, half, 17, "CANCEL", self.picker_cancel, "dark")
 
     def open_picker(self, i):
         rows = self.profile["script"]
@@ -540,11 +548,11 @@ class SetupPages(object):
     # ------------------------------------------------------------ AREA
     def build_tab_area(self):
         ui, t, P = self.ui, self.tabs["area"], PAL
-        self.area = AreaSelector(ui, t, X0, 74, W0, 130, self.set_area_box, self.update_area_label)
-        self.lb_area = Label(ui, t, X0, 211, 132, 7, "", P["ink"], TINY)
-        self.btn_live = Button(ui, t, 156, 208, 44, 14, "LIVE", self.toggle_area_live, "dark",
+        self.area = AreaSelector(ui, t, X0, 80, W0, 138, self.set_area_box, self.update_area_label)
+        self.lb_area = Label(ui, t, X0, 229, W0 - 52, 7, "", P["ink"], TINY)
+        self.btn_live = Button(ui, t, X1 - 44, 225, 44, 15, "LIVE", self.toggle_area_live, "dark",
                                "Live picture on/off (freeze it to draw more easily)", TINY)
-        TextBlock(ui, t, X0, 227, W0, 18,
+        TextBlock(ui, t, X0, 248, W0, 18,
                   "~Drag a box around the Pokemon in battle. Drag inside it to move it, or a corner "
                   "to resize.", P["faint"], TINY, 8)
 
@@ -616,51 +624,52 @@ class SetupPages(object):
     # ------------------------------------------------------------ CHECK
     def build_tab_check(self):
         ui, t, P = self.ui, self.tabs["check"], PAL
-        self.cy_mode = Cycler(ui, t, X0, 74, W0, 15,
+        self.cy_mode = Cycler(ui, t, X0, 80, W0, 15,
                               [("compare", "COMPARE TO NORMAL"), ("color", "LOOK FOR SHINY COLOURS")],
                               "compare", self.set_mode, "How OddsBreaker decides it's shiny")
+        sx = X1 - 92          # steppers line up on the right
         tc = self.g_cmp = Group(ui, t)
-        Pic(ui, tc, X0, 94, frame_box(74, 54, P["line"]))
-        self.prev_cmp = ImageBox(ui, tc, X0 + 1, 95, 72, 52)
-        self.cap(tc, 98, 94, "NORMAL FRAMES", 102)
-        self.thumbs = Thumbs(ui, tc, 97, 102, 104, 25, self.delete_ref)
-        self.btn_addref = Button(ui, tc, 98, 131, 102, 17, "+ ADD FRAME", self.add_ref, "go",
+        Pic(ui, tc, X0, 103, frame_box(78, 58, P["line"]))
+        self.prev_cmp = ImageBox(ui, tc, X0 + 1, 104, 76, 56)
+        self.cap(tc, X1 - 102, 103, "NORMAL FRAMES", 102)
+        self.thumbs = Thumbs(ui, tc, X1 - 104, 111, 104, 25, self.delete_ref)
+        self.btn_addref = Button(ui, tc, X1 - 102, 143, 102, 18, "+ ADD FRAME", self.add_ref, "go",
                                  "With the NORMAL Pokemon on screen, click to remember it")
-        self.cap(tc, X0, 153, "LIVE DIFFERENCE", 100)
-        self.lb_diff = Label(ui, tc, 140, 153, 60, 6, "", P["ink"], TINY, align="right")
-        self.meter_cmp = Meter(ui, tc, X0, 160, W0, 15, 60.0, 15.0, self.meter_threshold, True,
+        self.cap(tc, X0, 170, "LIVE DIFFERENCE", 100)
+        self.lb_diff = Label(ui, tc, X1 - 60, 170, 60, 6, "", P["ink"], TINY, align="right")
+        self.meter_cmp = Meter(ui, tc, X0, 178, W0, 15, 60.0, 15.0, self.meter_threshold, True,
                                "Drag the red line: above it counts as shiny")
-        self.cap(tc, X0, 184, "SHINY ABOVE", 86)
-        self.st_thr = Stepper(ui, tc, 110, 180, 90, 15, 15.0, 1.0, 60.0, step_pct,
+        self.cap(tc, X0, 205, "SHINY ABOVE", 86)
+        self.st_thr = Stepper(ui, tc, sx, 201, 92, 15, 15.0, 1.0, 60.0, step_pct,
                               lambda v: "%s%%" % fmt_num(v), self.set_threshold,
                               "How different from normal counts as shiny")
-        self.cap(tc, X0, 202, "PIXEL TOLERANCE", 86)
-        self.st_ptol = Stepper(ui, tc, 110, 198, 90, 15, 40, 5, 150, lambda v, d: int(v) + 5 * d,
+        self.cap(tc, X0, 224, "PIXEL TOLERANCE", 86)
+        self.st_ptol = Stepper(ui, tc, sx, 220, 92, 15, 40, 5, 150, lambda v, d: int(v) + 5 * d,
                                lambda v: "%d" % v, self.set_ptol,
                                "How much a pixel may change before it counts as different")
-        self.spark = Sparkline(ui, tc, X0, 217, 120, 14,
+        self.spark = Sparkline(ui, tc, X0, 240, W0 - 64, 14,
                                "Scores of your last normal encounters (red line = shiny)")
-        self.btn_suggest = Button(ui, tc, 144, 217, 56, 14, "SUGGEST", self.apply_suggestion, "dark",
+        self.btn_suggest = Button(ui, tc, X1 - 58, 240, 58, 14, "SUGGEST", self.apply_suggestion, "dark",
                                   "Move the red line to a safe spot based on your last checks", TINY)
         tk_ = self.g_col = Group(ui, t)
-        Pic(ui, tk_, X0, 94, frame_box(102, 64, P["line"]))
-        self.prev_col = ImageBox(ui, tk_, X0 + 1, 95, 100, 62, cb=self.pick_color,
+        Pic(ui, tk_, X0, 103, frame_box(102, 64, P["line"]))
+        self.prev_col = ImageBox(ui, tk_, X0 + 1, 104, 100, 62, cb=self.pick_color,
                                  hint="Click a colour that only the shiny has", cursor="tcross")
-        self.cap(tk_, 128, 94, "SHINY COLOURS", 72)
-        self.swatches = Swatches(ui, tk_, 128, 102, 72, 36, self.remove_color)
-        Button(ui, tk_, 128, 143, 72, 15, "CLEAR", self.clear_colors, "dark", "Remove all colours", TINY)
-        self.cap(tk_, X0, 163, "COLOUR MATCH", 100)
-        self.lb_match = Label(ui, tk_, 140, 163, 60, 6, "", P["ink"], TINY, align="right")
-        self.meter_col = Meter(ui, tk_, X0, 170, W0, 15, 30.0, 3.0, self.meter_colorpct, False,
+        self.cap(tk_, X1 - 78, 103, "SHINY COLOURS", 78)
+        self.swatches = Swatches(ui, tk_, X1 - 78, 111, 78, 36, self.remove_color)
+        Button(ui, tk_, X1 - 78, 152, 78, 15, "CLEAR", self.clear_colors, "dark", "Remove all colours", TINY)
+        self.cap(tk_, X0, 176, "COLOUR MATCH", 100)
+        self.lb_match = Label(ui, tk_, X1 - 60, 176, 60, 6, "", P["ink"], TINY, align="right")
+        self.meter_col = Meter(ui, tk_, X0, 184, W0, 15, 30.0, 3.0, self.meter_colorpct, False,
                                "Drag the red line: at or above it counts as shiny")
-        self.cap(tk_, X0, 194, "SHINY AT", 86)
-        self.st_cpct = Stepper(ui, tk_, 110, 190, 90, 15, 3.0, 0.5, 30.0, step_pct,
+        self.cap(tk_, X0, 211, "SHINY AT", 86)
+        self.st_cpct = Stepper(ui, tk_, sx, 207, 92, 15, 3.0, 0.5, 30.0, step_pct,
                                lambda v: "%s%%" % fmt_num(v), self.set_cpct,
                                "How much of the area must be shiny colours")
-        self.cap(tk_, X0, 212, "COLOUR TOLERANCE", 86)
-        self.st_ctol = Stepper(ui, tk_, 110, 208, 90, 15, 28, 4, 120, lambda v, d: int(v) + 2 * d,
+        self.cap(tk_, X0, 230, "COLOUR TOLERANCE", 86)
+        self.st_ctol = Stepper(ui, tk_, sx, 226, 92, 15, 28, 4, 120, lambda v, d: int(v) + 2 * d,
                                lambda v: "%d" % v, self.set_ctol, "How close a colour must be")
-        self.lb_verdict = Label(ui, t, X0, 236, W0, 8, "", P["ink"], align="center")
+        self.lb_verdict = Label(ui, t, X0, 258, W0, 8, "", P["ink"], align="center")
 
     def update_mode_groups(self):
         mode = self.profile["detect"]["mode"]

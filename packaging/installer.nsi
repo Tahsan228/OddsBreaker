@@ -26,7 +26,9 @@ Target amd64-unicode
 
 !define APPNAME "OddsBreaker"
 !define PUBLISHER "Tahsan"
-!define WEBSITE "https://github.com/Tahsan228/ShinyHunt"
+!ifndef WEBSITE
+  !define WEBSITE "https://github.com/Tahsan228/OddsBreaker"
+!endif
 !define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}"
 
 Name "${APPNAME}"

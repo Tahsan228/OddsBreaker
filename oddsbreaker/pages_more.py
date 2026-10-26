@@ -7,7 +7,8 @@ import uuid
 
 import tkinter as tk
 
-from . import APP_NAME, AUTHOR, RELEASES_URL, REPO_URL, __version__, paths
+from . import APP_NAME, AUTHOR, RELEASES_URL, REPO, REPO_URL, __version__, paths
+from .art import PSCREEN
 from .config import HOTKEY_ACTIONS, IS_WIN
 from .dexnames import POKEDEX_IDS, dex_no, norm_poke_name, poke_display
 from .imaging import Bitmap
@@ -22,7 +23,8 @@ from .ui.toolkit import (Blocker, Button, Cycler, Group, IconButton, ImageBox, K
                          ListBox, Pic, TextBlock, TextInput, Toggle, row_highlight)
 from .ui.widgets import BarChart, StatCard
 
-X0, W0 = 20, 180
+X0, W0 = 24, 188      # page content: left edge and width (art pixels)
+X1 = X0 + W0          # right edge
 
 HELP = {
     "hunt": ["@HUNT SETUP\nType the Pokemon you're hunting. The game sets the shiny odds, and you can "
@@ -81,29 +83,31 @@ class MorePages(object):
     # ------------------------------------------------------------ DEX
     def build_tab_dex(self):
         ui, t, P = self.ui, self.tabs["dex"], PAL
-        self.cap(t, X0, 74, "CLICK A HUNT TO SWITCH TO IT", 120)
-        self.lb_dex_count = Label(ui, t, 140, 74, 60, 6, "", P["dim"], TINY, align="right")
-        self.dex_list = ListBox(ui, t, X0, 83, W0, 112, 14, self.draw_dex_row, self.click_dex_row,
+        self.cap(t, X0, 80, "CLICK A HUNT TO SWITCH TO IT", 120)
+        self.lb_dex_count = Label(ui, t, X1 - 68, 80, 68, 6, "", P["dim"], TINY, align="right")
+        self.dex_list = ListBox(ui, t, X0, 90, W0, 126, 14, self.draw_dex_row, self.click_dex_row,
                                 "Click a hunt to switch to it")
         self.g_dexbtn = Group(ui, t)
         g = self.g_dexbtn
-        Button(ui, g, 20, 199, 42, 15, "+ NEW", self.dex_new, "go", "Start a new hunt")
-        Button(ui, g, 65, 199, 42, 15, "COPY", self.dex_copy, "dark",
+        q = (W0 - 12) // 4          # four buttons with 4px gaps
+        Button(ui, g, X0, 224, q, 15, "+ NEW", self.dex_new, "go", "Start a new hunt")
+        Button(ui, g, X0 + (q + 4), 224, q, 15, "COPY", self.dex_copy, "dark",
                "Copy this hunt's setup (keys, steps, area) to a new hunt")
-        Button(ui, g, 110, 199, 44, 15, "RENAME", self.dex_rename, "dark", "Rename this hunt")
-        self.btn_del = Button(ui, g, 157, 199, 43, 15, "DELETE", self.dex_delete, "danger",
+        Button(ui, g, X0 + 2 * (q + 4), 224, q, 15, "RENAME", self.dex_rename, "dark", "Rename this hunt")
+        self.btn_del = Button(ui, g, X0 + 3 * (q + 4), 224, q, 15, "DELETE", self.dex_delete, "danger",
                               "Delete this hunt")
-        self.btn_reset = Button(ui, g, 20, 218, 58, 15, "RESET", self.dex_reset, "dark",
+        r3 = (W0 - 8) // 3          # three buttons
+        self.btn_reset = Button(ui, g, X0, 244, r3, 15, "RESET", self.dex_reset, "dark",
                                 "Start this hunt over from zero")
-        Button(ui, g, 81, 218, 58, 15, "SHARE", self.dex_share, "dark",
+        Button(ui, g, X0 + r3 + 4, 244, r3, 15, "SHARE", self.dex_share, "dark",
                "Copy a hunt code (keys, steps, area) to send to a friend")
-        Button(ui, g, 142, 218, 58, 15, "PASTE", self.dex_paste, "dark",
+        Button(ui, g, X0 + 2 * (r3 + 4), 244, r3, 15, "PASTE", self.dex_paste, "dark",
                "Add a hunt from a hunt code you copied")
         self.g_ask = Group(ui, t, visible=False)
-        self.lb_ask = Label(ui, self.g_ask, X0, 200, W0, 6, "", P["cyan"], TINY)
-        self.in_ask = TextInput(ui, self.g_ask, X0, 208, 140, 15, maxlen=24, on_enter=self.ask_done)
-        Button(ui, self.g_ask, 163, 208, 37, 15, "OK", lambda: self.ask_done(self.in_ask.text), "go")
-        Button(ui, self.g_ask, X0, 228, 56, 14, "CANCEL", self.ask_cancel, "dark", "")
+        self.lb_ask = Label(ui, self.g_ask, X0, 224, W0, 6, "", P["cyan"], TINY)
+        self.in_ask = TextInput(ui, self.g_ask, X0, 233, W0 - 46, 15, maxlen=24, on_enter=self.ask_done)
+        Button(ui, self.g_ask, X1 - 42, 233, 42, 15, "OK", lambda: self.ask_done(self.in_ask.text), "go")
+        Button(ui, self.g_ask, X0, 252, 56, 14, "CANCEL", self.ask_cancel, "dark", "")
 
     def refresh_dex(self):
         profs = self.data["profiles"]
@@ -307,13 +311,14 @@ class MorePages(object):
                                                                              "have found it by now"),
                  ("mult", "VS ODDS", "Resets compared to the odds"),
                  ("avg", "PER RESET", "Seconds per reset")]
+        cw = (W0 - 8) // 3
         for i, (key, cap, hint) in enumerate(specs):
             c, r = i % 3, i // 3
-            self.cards[key] = StatCard(ui, t, X0 + c * 61, 74 + r * 27, 58, 24, cap, hint)
-        self.cap(t, X0, 130, "RESETS PER DAY · LAST 14 DAYS")
-        self.chart = BarChart(ui, t, X0, 138, W0, 50, "Resets per day")
-        self.tb_pace = TextBlock(ui, t, X0, 193, W0, 22, "", P["ink"], FONT, 10)
-        self.tb_all = TextBlock(ui, t, X0, 218, W0, 26, "", P["dim"], TINY, 8)
+            self.cards[key] = StatCard(ui, t, X0 + c * (cw + 4), 80 + r * 29, cw, 25, cap, hint)
+        self.cap(t, X0, 144, "RESETS PER DAY · LAST 14 DAYS")
+        self.chart = BarChart(ui, t, X0, 153, W0, 50, "Resets per day")
+        self.tb_pace = TextBlock(ui, t, X0, 211, W0, 22, "", P["ink"], FONT, 10)
+        self.tb_all = TextBlock(ui, t, X0, 239, W0, 26, "", P["dim"], TINY, 8)
 
     def refresh_stats(self):
         P = PAL
@@ -367,20 +372,21 @@ class MorePages(object):
     # ------------------------------------------------------------ LOG
     def build_tab_log(self):
         ui, t, P = self.ui, self.tabs["log"], PAL
-        box = Bitmap(78, 58)
-        box.rframe(0, 0, 78, 58, 3, P["line"])
-        Pic(ui, t, X0, 74, box)
-        self.log_img = ImageBox(ui, t, X0 + 1, 75, 76, 56, cb=lambda x, y: self.log_open(),
+        box = Bitmap(80, 60)
+        box.rframe(0, 0, 80, 60, 3, P["line"])
+        Pic(ui, t, X0, 80, box)
+        self.log_img = ImageBox(ui, t, X0 + 1, 81, 78, 58, cb=lambda x, y: self.log_open(),
                                 hint="Click to open the full screenshot")
-        self.log_info = TextBlock(ui, t, 103, 76, 97, 56, "", P["ink"], TINY, 8)
-        self.log_list = ListBox(ui, t, X0, 137, W0, 66, 11, self.draw_log_row, self.click_log_row,
+        self.log_info = TextBlock(ui, t, X0 + 88, 82, W0 - 88, 58, "", P["ink"], TINY, 8)
+        self.log_list = ListBox(ui, t, X0, 149, W0, 66, 11, self.draw_log_row, self.click_log_row,
                                 "Click an entry to see it")
         self.log_list.empty_text = "Shinies you catch show up here with a screenshot."
-        Button(ui, t, 20, 207, 58, 15, "PICTURE", self.log_open, "dark", "Open the full screenshot")
-        Button(ui, t, 81, 207, 58, 15, "FOLDER", self.log_folder, "dark", "Open the shinies folder")
-        Button(ui, t, 142, 207, 58, 15, "CSV", self.log_csv, "dark",
+        r3 = (W0 - 8) // 3
+        Button(ui, t, X0, 223, r3, 15, "PICTURE", self.log_open, "dark", "Open the full screenshot")
+        Button(ui, t, X0 + r3 + 4, 223, r3, 15, "FOLDER", self.log_folder, "dark", "Open the shinies folder")
+        Button(ui, t, X0 + 2 * (r3 + 4), 223, r3, 15, "CSV", self.log_csv, "dark",
                "Save your hunts and shinies as spreadsheets")
-        self.lb_log_sum = TextBlock(ui, t, X0, 228, W0, 16, "", P["dim"], TINY, 8)
+        self.lb_log_sum = TextBlock(ui, t, X0, 247, W0, 16, "", P["dim"], TINY, 8)
 
     def refresh_log(self):
         log = list(reversed(self.data["log"]))
@@ -465,37 +471,38 @@ class MorePages(object):
     # ------------------------------------------------------------ ALERT
     def build_tab_alert(self):
         ui, t, P = self.ui, self.tabs["alert"], PAL
-        self.cap(t, X0, 74, "DISCORD WEBHOOK", 100)
-        self.lb_discord = Label(ui, t, 120, 74, 80, 6, "", P["dim"], TINY, align="right")
-        self.in_discord = TextInput(ui, t, X0, 81, 140, 15, placeholder="Paste webhook URL (Ctrl+V)",
+        tx = X1 - 34          # toggles line up on the right
+        self.cap(t, X0, 80, "DISCORD WEBHOOK", 100)
+        self.lb_discord = Label(ui, t, X1 - 88, 80, 88, 6, "", P["dim"], TINY, align="right")
+        self.in_discord = TextInput(ui, t, X0, 88, W0 - 44, 15, placeholder="Paste webhook URL (Ctrl+V)",
                                     maxlen=220, on_change=self.set_discord, secret=True,
                                     hint="Discord: Server Settings > Integrations > Webhooks > Copy URL")
-        Button(ui, t, 163, 81, 37, 15, "TEST", lambda: self.test_alert("discord"), "dark",
+        Button(ui, t, X1 - 40, 88, 40, 15, "TEST", lambda: self.test_alert("discord"), "dark",
                "Send a test message to Discord")
-        self.cap(t, X0, 101, "PHONE PUSH (NTFY TOPIC)", 100)
-        self.lb_ntfy = Label(ui, t, 120, 101, 80, 6, "", P["dim"], TINY, align="right")
-        self.in_ntfy = TextInput(ui, t, X0, 108, 140, 15, placeholder="A secret topic name",
+        self.cap(t, X0, 112, "PHONE PUSH (NTFY TOPIC)", 100)
+        self.lb_ntfy = Label(ui, t, X1 - 88, 112, 88, 6, "", P["dim"], TINY, align="right")
+        self.in_ntfy = TextInput(ui, t, X0, 120, W0 - 44, 15, placeholder="A secret topic name",
                                  maxlen=120, on_change=self.set_ntfy,
                                  hint="Subscribe to the same topic in the free ntfy app")
-        Button(ui, t, 163, 108, 37, 15, "TEST", lambda: self.test_alert("ntfy"), "dark",
+        Button(ui, t, X1 - 40, 120, 40, 15, "TEST", lambda: self.test_alert("ntfy"), "dark",
                "Send a test push to your phone")
-        self.cap(t, X0, 131, "SEND THE SCREENSHOT TOO", 140)
-        self.tg_shot = Toggle(ui, t, 166, 127, True, lambda v: self.set_setting("discord_shot", v),
+        self.cap(t, X0, 150, "SEND THE SCREENSHOT TOO", 140)
+        self.tg_shot = Toggle(ui, t, tx, 146, True, lambda v: self.set_setting("discord_shot", v),
                               "Attach a picture of the shiny")
-        self.cap(t, X0, 150, "ALERT ME IF A HUNT STOPS", 140)
-        self.tg_errs = Toggle(ui, t, 166, 146, True, lambda v: self.set_setting("notify_errors", v),
+        self.cap(t, X0, 170, "ALERT ME IF A HUNT STOPS", 140)
+        self.tg_errs = Toggle(ui, t, tx, 166, True, lambda v: self.set_setting("notify_errors", v),
                               "Get a message if the emulator closes or something breaks")
-        self.cap(t, X0, 169, "PROGRESS PING EVERY", 100)
-        self.cy_every = Cycler(ui, t, 120, 165, 80, 15,
+        self.cap(t, X0, 190, "PROGRESS PING EVERY", 100)
+        self.cy_every = Cycler(ui, t, X1 - 84, 186, 84, 15,
                                [(0, "OFF"), (100, "100"), (500, "500"), (1000, "1,000"), (5000, "5,000")],
                                0, lambda v: self.set_setting("notify_every", int(v)),
                                "Send a progress message every so many resets")
-        self.cap(t, X0, 189, "OBS COUNTER FILES", 140)
-        self.tg_stream = Toggle(ui, t, 166, 185, False, self.set_stream,
+        self.cap(t, X0, 210, "OBS COUNTER FILES", 140)
+        self.tg_stream = Toggle(ui, t, tx, 206, False, self.set_stream,
                                 "Write the count, time and odds to text files for OBS")
-        Button(ui, t, X0, 204, W0, 15, "OPEN STREAM FOLDER", self.open_stream_folder, "dark",
+        Button(ui, t, X0, 228, W0, 15, "OPEN STREAM FOLDER", self.open_stream_folder, "dark",
                "Text files to use as OBS Text (GDI+) sources")
-        TextBlock(ui, t, X0, 225, W0, 20,
+        TextBlock(ui, t, X0, 252, W0, 12,
                   "~Press ? for how to set up Discord, ntfy and OBS.", P["faint"], TINY, 8)
 
     def set_setting(self, key, value):
@@ -563,44 +570,46 @@ class MorePages(object):
     def build_tab_more(self):
         ui, t = self.ui, self.tabs["more"]
         self.more_page = "look"
-        self.btn_look = Button(ui, t, X0, 74, 88, 15, "LOOK + SOUND", lambda: self.more_flip("look"),
+        half = (W0 - 4) // 2
+        self.btn_look = Button(ui, t, X0, 80, half, 15, "LOOK + SOUND", lambda: self.more_flip("look"),
                                "dark", "")
-        self.btn_sys = Button(ui, t, 112, 74, 88, 15, "HUNT + SYSTEM", lambda: self.more_flip("sys"),
+        self.btn_sys = Button(ui, t, X1 - half, 80, half, 15, "HUNT + SYSTEM", lambda: self.more_flip("sys"),
                               "dark", "")
         g1 = self.g_look = Group(ui, t)
-        rows = [95 + i * 19 for i in range(8)]
+        rows = [103 + i * 20 for i in range(8)]
+        cx, cw, tx = X1 - 90, 90, X1 - 34      # cyclers and toggles line up on the right
 
         def row(g, i, text):
-            self.cap(g, X0, rows[i] + 5, text, 88)
+            self.cap(g, X0, rows[i] + 5, text, 92)
 
         row(g1, 0, "WINDOW SIZE")
-        self.cy_size = Cycler(ui, g1, 110, rows[0], 90, 15, [(s, "%dX" % s) for s in (1, 2, 3, 4)],
+        self.cy_size = Cycler(ui, g1, cx, rows[0], cw, 15, [(s, "%dX" % s) for s in (1, 2, 3, 4)],
                               self.S, self.set_size, "Make the whole device bigger or smaller")
         row(g1, 1, "SHELL COLOUR")
-        self.cy_theme = Cycler(ui, g1, 110, rows[1], 90, 15, [(n, n) for n in THEME_NAMES],
+        self.cy_theme = Cycler(ui, g1, cx, rows[1], cw, 15, [(n, n) for n in THEME_NAMES],
                                self.settings.get("theme", "RED"), self.set_theme, "Paint the device")
         row(g1, 2, "EFFECTS")
-        self.cy_fx = Cycler(ui, g1, 110, rows[2], 90, 15, [("FULL", "FULL"), ("LITE", "LITE"),
-                                                           ("OFF", "OFF")],
+        self.cy_fx = Cycler(ui, g1, cx, rows[2], cw, 15, [("FULL", "FULL"), ("LITE", "LITE"),
+                                                          ("OFF", "OFF")],
                             self.settings.get("effects", "FULL"), self.set_effects,
                             "Animations. LITE or OFF is easier on slow PCs.")
         row(g1, 3, "SOUND")
-        self.cy_sound = Cycler(ui, g1, 110, rows[3], 90, 15,
+        self.cy_sound = Cycler(ui, g1, cx, rows[3], cw, 15,
                                [("ALL", "ALL"), ("SHINY ONLY", "SHINY ONLY"), ("OFF", "OFF")],
                                self.settings.get("sound", "ALL"), self.set_sound,
                                "Beeps and the shiny jingle")
         row(g1, 4, "VOLUME")
-        self.cy_vol = Cycler(ui, g1, 110, rows[4], 90, 15, [("LOW", "LOW"), ("MED", "MEDIUM"),
-                                                            ("HIGH", "HIGH")],
+        self.cy_vol = Cycler(ui, g1, cx, rows[4], cw, 15, [("LOW", "LOW"), ("MED", "MEDIUM"),
+                                                           ("HIGH", "HIGH")],
                              self.settings.get("volume", "MED"), self.set_volume, "How loud")
         row(g1, 5, "KEEP ON TOP")
-        self.tg_top = Toggle(ui, g1, 166, rows[5], bool(self.settings.get("topmost")), self.set_topmost,
+        self.tg_top = Toggle(ui, g1, tx, rows[5], bool(self.settings.get("topmost")), self.set_topmost,
                              "Keep %s above other windows" % APP_NAME)
         row(g1, 6, "WINDOW STYLE")
-        self.cy_frame = Cycler(ui, g1, 110, rows[6], 90, 15, [("POKEDEX", "DEVICE"), ("CLASSIC", "CLASSIC")],
+        self.cy_frame = Cycler(ui, g1, cx, rows[6], cw, 15, [("POKEDEX", "DEVICE"), ("CLASSIC", "CLASSIC")],
                                self.settings.get("frame", "POKEDEX"), self.set_frame,
                                "DEVICE = shaped window. CLASSIC = normal Windows frame.")
-        self.btn_restart = Button(ui, g1, X0, 228, W0, 15, "RESTART TO SWITCH STYLE", self.restart,
+        self.btn_restart = Button(ui, g1, X0, 247, W0, 15, "RESTART TO SWITCH STYLE", self.restart,
                                   "go", "Restart %s now" % APP_NAME)
         self.btn_restart.show(False)
         g2 = self.g_sys = Group(ui, t, visible=False)
@@ -608,26 +617,26 @@ class MorePages(object):
         for i, (action, label) in enumerate(HOTKEY_ACTIONS):
             row(g2, i, label + " KEY")
             self.hk_slots[action] = KeySlot(
-                ui, g2, 110, rows[i], 90, 15, (self.settings.get("hotkeys") or {}).get(action, ""),
+                ui, g2, cx, rows[i], cw, 15, (self.settings.get("hotkeys") or {}).get(action, ""),
                 (lambda v, a=action: self.set_hotkey(a, v)),
                 "Works from anywhere. Click, press a key. Right-click clears.")
         row(g2, 4, "AUTO-STOP AFTER")
-        self.cy_auto = Cycler(ui, g2, 110, rows[4], 90, 15,
+        self.cy_auto = Cycler(ui, g2, cx, rows[4], cw, 15,
                               [(0, "NEVER"), (1, "1 HOUR"), (2, "2 HOURS"), (4, "4 HOURS"),
                                (8, "8 HOURS"), (12, "12 HOURS")],
                               int(self.settings.get("autostop") or 0), self.set_autostop,
                               "Stop the hunt by itself after this long")
         row(g2, 5, "CHECK FOR UPDATES")
-        self.tg_upd = Toggle(ui, g2, 166, rows[5], bool(self.settings.get("updates", True)),
+        self.tg_upd = Toggle(ui, g2, tx, rows[5], bool(self.settings.get("updates", True)),
                              lambda v: self.set_setting("updates", bool(v)),
-                             "Look for a new version on GitHub once a day")
-        Button(ui, g2, X0, 209, 88, 15, "DATA FOLDER", self.open_data_folder, "dark",
+                             "Look for a new version on GitHub every time it starts")
+        Button(ui, g2, X0, 227, half, 15, "DATA FOLDER", self.open_data_folder, "dark",
                "Your hunts, shiny pictures, backups and settings")
-        Button(ui, g2, 112, 209, 88, 15, "IMPORT SAVE", self.import_save_dialog, "dark",
+        Button(ui, g2, X1 - half, 227, half, 15, "IMPORT SAVE", self.import_save_dialog, "dark",
                "Bring hunts over from ShinyDex or another computer")
-        Button(ui, g2, X0, 228, 88, 15, "HELP", lambda: self.open_help("general"), "dark",
+        Button(ui, g2, X0, 247, half, 15, "HELP", lambda: self.open_help("general"), "dark",
                "How it all works")
-        self.btn_about = Button(ui, g2, 112, 228, 88, 15, "ABOUT", self.open_about, "dark",
+        self.btn_about = Button(ui, g2, X1 - half, 247, half, 15, "ABOUT", self.open_about, "dark",
                                 "Version, credits and updates")
         self.more_flip("look", quiet=True)
 
@@ -754,6 +763,9 @@ class MorePages(object):
             self.changed()
             return
         path = found[0]
+        if self.overlay_open() or self.alert:
+            self.root.after(2500, self.offer_legacy_import)   # don't talk over another prompt
+            return
         if not self.panel_open:
             self.open_panel("dex")
 
@@ -777,18 +789,21 @@ class MorePages(object):
     def build_overlay(self):
         ui, P = self.ui, PAL
         g = self.g_over = Group(ui, self.g_panel, visible=False)
-        Blocker(ui, g, 12, 52, Bitmap(196, 196, P["night"]))
-        box = Bitmap(184, 184)
-        box.rrect(0, 0, 184, 184, 6, P["cyan_dk"])
-        box.rrect(1, 1, 182, 182, 5, P["dark2"])
-        box.rect(6, 22, 172, 1, P["line"])
-        Blocker(ui, g, 18, 58, box)
-        self.ov_title = Label(ui, g, 28, 66, 120, 8, "", P["cyan"])
-        self.ov_page = Label(ui, g, 150, 67, 42, 6, "", P["dim"], TINY, align="right")
-        self.ov_body = TextBlock(ui, g, 28, 86, 166, 124, "", P["ink"], FONT, 10)
-        self.ov_prev = IconButton(ui, g, 28, 222, "◀", lambda: self.overlay_flip(-1), "Previous page")
-        self.ov_next = IconButton(ui, g, 43, 222, "▶", lambda: self.overlay_flip(1), "Next page")
-        self.ov_btns = [Button(ui, g, 0, 220, 52, 15, "", None, "dark", "") for _ in range(3)]
+        px, py, pw, ph = PSCREEN
+        Blocker(ui, g, px, py, Bitmap(pw, ph, P["night"]))
+        bx, by, bw, bh = self.ov_box = (px + 8, py + 8, pw - 16, ph - 16)
+        box = Bitmap(bw, bh)
+        box.rrect(0, 0, bw, bh, 6, P["cyan_dk"])
+        box.rrect(1, 1, bw - 2, bh - 2, 5, P["dark2"])
+        box.rect(6, 22, bw - 12, 1, P["line"])
+        Blocker(ui, g, bx, by, box)
+        self.ov_title = Label(ui, g, bx + 10, by + 8, 120, 8, "", P["cyan"])
+        self.ov_page = Label(ui, g, bx + bw - 54, by + 9, 44, 6, "", P["dim"], TINY, align="right")
+        self.ov_body = TextBlock(ui, g, bx + 10, by + 30, bw - 20, bh - 70, "", P["ink"], FONT, 10)
+        self.ov_prev = IconButton(ui, g, bx + 10, by + bh - 26, "◀", lambda: self.overlay_flip(-1),
+                                  "Previous page")
+        self.ov_next = IconButton(ui, g, bx + 25, by + bh - 26, "▶", lambda: self.overlay_flip(1), "Next page")
+        self.ov_btns = [Button(ui, g, 0, by + bh - 28, 52, 15, "", None, "dark", "") for _ in range(3)]
         self.ov_pages = []
         self.ov_i = 0
 
@@ -801,14 +816,15 @@ class MorePages(object):
         multi = len(self.ov_pages) > 1
         self.ov_prev.show(multi)
         self.ov_next.show(multi)
-        x = 192
+        bx, by, bw, bh = self.ov_box
+        x = bx + bw - 10
         for i, b in enumerate(self.ov_btns):
             if i < len(buttons):
                 label, cb, style = buttons[i]
                 w = max(44, (FONT.width(label) if FONT.width(label) <= 70 else TINY.width(label)) + 14)
                 x -= w
                 b.w = w
-                b.move(x, 220)
+                b.move(x, by + bh - 28)
                 b.set_label(label)
                 b.cb = cb
                 b.set_style(style)
@@ -854,7 +870,7 @@ class MorePages(object):
     def open_about(self):
         upd = self.update_info
         text = ("@%s %s\nThe automatic shiny hunter for any emulator.\n\nMade by %s.\n"
-                "~GitHub: Tahsan228/ShinyHunt\n\n" % (APP_NAME.upper(), __version__, AUTHOR))
+                "~GitHub: %s\n\n" % (APP_NAME.upper(), __version__, AUTHOR, REPO))
         if upd:
             text += "!UPDATE READY: %s\n\n" % upd[0]
         text += ("~Sprites come from the PokeAPI sprite project. Pokemon belongs to Nintendo, Game "

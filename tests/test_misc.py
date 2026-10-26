@@ -74,3 +74,53 @@ def test_sounds(tmp_path):
         wf = wave.open(path)
         assert wf.getnframes() > 100 and wf.getsampwidth() == 2
         wf.close()
+
+
+def test_sprites_come_out_about_the_same_size():
+    import math
+    from oddsbreaker.sprites import MAIN_TARGET, sprite_scale
+    # real Gen 5 sprite sizes, from a tiny Ralts to a huge Gholdengo
+    sizes = [(23, 39), (36, 37), (43, 36), (41, 42), (51, 38), (38, 55), (50, 46), (65, 37),
+             (47, 64), (57, 54), (74, 74), (90, 69), (103, 88), (110, 98), (119, 105)]
+    for S in (2, 3):
+        for w, h in sizes:
+            k = sprite_scale(w, h, S, MAIN_TARGET, 140, 82)
+            side = math.sqrt(w * h) * k / S
+            assert 0.75 * MAIN_TARGET <= side <= 1.2 * MAIN_TARGET, (S, w, h, k, side)
+            assert w * k <= 140 * S and h * k <= 82 * S, "always fits the screen"
+    assert sprite_scale(400, 300, 1, MAIN_TARGET, 140, 82) == 0.25, "huge pictures shrink to fit"
+
+
+def test_sprite_downloads_retry_after_a_failure(monkeypatch):
+    import queue
+    from oddsbreaker import sprites
+
+    def offline(url, *a, **k):
+        raise OSError("no internet")
+
+    monkeypatch.setattr(sprites, "http_get", offline)
+    cache = sprites.SpriteCache(queue.Queue())
+    cache._fetch_anim(9999, True)
+    cache._fetch(9999)
+    assert (9999, True) in cache.anim_failed and 9999 in cache.failed
+    # not straight away...
+    assert cache.anim(9999, True) is None and not cache.anim_pending
+    assert cache.lookup("") is None
+    # ...but once the wait is over it tries again
+    cache.anim_failed[(9999, True)] -= sprites.RETRY_AFTER + 1
+    assert sprites.SpriteCache.may_try(cache.anim_failed, (9999, True))
+
+
+def test_folders_can_be_made_twice_at_once(tmp_path, monkeypatch):
+    # two download threads both see "no folder" and both create it
+    folder = tmp_path / "anim"
+    folder.mkdir()
+    real, calls = os.path.isdir, []
+
+    def isdir_late(p):
+        # the other thread made the folder just after this one looked
+        calls.append(p)
+        return False if len(calls) == 1 else real(p)
+
+    monkeypatch.setattr(paths.os.path, "isdir", isdir_late)
+    assert paths.ensure(str(folder)) == str(folder)

@@ -318,18 +318,23 @@ class CRT(object):
             self._rect(self.beam, x, y, w, h)
 
     def step(self, now):
-        if not self.ui.alive:
+        if not self.ui.alive or not self.running:
             return False
         t = (now - self.t0) / 0.42
         if t >= 1.0:
-            self.ui.cv.delete(self.cover)
-            self.ui.cv.delete(self.beam)
-            self.running = False
+            self.finish()
             if self.on_done:
                 self.on_done()
             return False
         self._place(t)
         return "fast"
+
+    def finish(self):
+        """Stop at once (no on_done)."""
+        if self.running:
+            self.running = False
+            self.ui.cv.delete(self.cover)
+            self.ui.cv.delete(self.beam)
 
 
 class Scanner(object):

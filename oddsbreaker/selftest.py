@@ -155,7 +155,8 @@ def scenario(d):
     app = d.app
     plat = app.plat
     d.shot("01_boot", settle=0.25)
-    d.pump(2.2)
+    assert d.wait_for(lambda: not app.booting, 6), "the start-up show should finish"
+    d.pump(0.5)
     d.shot("02_device")
     assert d.wait_for(lambda: app.panel_open and app.tab == "hunt", 4), "welcome should open HUNT"
     d.pump(0.6)

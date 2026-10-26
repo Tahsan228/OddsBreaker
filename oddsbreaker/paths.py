@@ -66,8 +66,9 @@ def init(path=None):
 
 
 def ensure(folder):
+    # exist_ok: two download threads may create the same folder at once
     if folder and not os.path.isdir(folder):
-        os.makedirs(folder)
+        os.makedirs(folder, exist_ok=True)
     return folder
 
 

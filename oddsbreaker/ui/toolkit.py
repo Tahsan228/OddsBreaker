@@ -175,6 +175,9 @@ class UI(object):
             self.cv.focus_set()
         except tk.TclError:
             pass
+        if getattr(self.app, "booting", False):
+            self.app.skip_boot()          # a click during the start-up show skips it
+            return
         w = self.hit(x, y)
         if w is not None and w.focusable:
             try:
@@ -251,6 +254,9 @@ class UI(object):
     def key(self, e):
         if isinstance(e.widget, (tk.Text, tk.Entry)):
             return None
+        if getattr(self.app, "booting", False):
+            self.app.skip_boot()
+            return "break"
         f = self.focus
         if f is not None and f.shown() and f.on_key(e):
             return "break"
@@ -621,10 +627,13 @@ class Button(Widget):
             return False
         return True
 
+    # the click plays on press, like a real button; the action runs on release
+    def on_press(self, x, y):
+        if self.enabled and self.sound:
+            self.ui.app.sound(self.sound)
+
     def on_release(self, x, y, inside):
         if inside and self.enabled:
-            if self.sound:
-                self.ui.app.sound(self.sound)
             self.cb()
 
     def pick_font(self, text, room):
@@ -672,9 +681,12 @@ class IconButton(Widget):
         self.glyph, self.cb, self.color = glyph, cb, color
         Widget.__init__(self, ui, group, x, y, size, size, hint)
 
+    def on_press(self, x, y):
+        if self.enabled:
+            self.ui.app.sound("click")
+
     def on_release(self, x, y, inside):
         if inside and self.enabled:
-            self.ui.app.sound("click")
             self.cb()
 
     def render(self):
@@ -806,11 +818,13 @@ class Toggle(Widget):
             self.value = bool(v)
             self.refresh()
 
+    def on_press(self, x, y):
+        self.ui.app.sound("tick")
+
     def on_release(self, x, y, inside):
         if inside:
             self.value = not self.value
             self.refresh()
-            self.ui.app.sound("tick")
             self.on_change(self.value)
 
     def render(self):
@@ -1769,12 +1783,13 @@ class DPad(Widget):
 
     def on_press(self, x, y):
         self.zone = self._zone(x, y)
+        if self.zone:
+            self.ui.app.sound("tick")
         self.refresh()
 
     def on_release(self, x, y, inside):
         z = self._zone(x, y)
         if inside and z:
-            self.ui.app.sound("tick")
             self.cb(z)
         self.refresh()
 
@@ -1813,9 +1828,11 @@ class RoundButton(Widget):
         self.r = r
         Widget.__init__(self, ui, group, x, y, 2 * r + 1, 2 * r + 1, hint)
 
+    def on_press(self, x, y):
+        self.ui.app.sound("tick")
+
     def on_release(self, x, y, inside):
         if inside:
-            self.ui.app.sound("tick")
             self.cb()
 
     def render(self):
@@ -1847,9 +1864,12 @@ class MiniScreen(Widget):
             self.lines = lines
             self.refresh()
 
+    def on_press(self, x, y):
+        if self.cb:
+            self.ui.app.sound("click")
+
     def on_release(self, x, y, inside):
         if inside and self.cb:
-            self.ui.app.sound("click")
             self.cb()
 
     def render(self):

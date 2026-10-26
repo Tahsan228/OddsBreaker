@@ -8,26 +8,29 @@ from .pixel import FONT, PAL, TINY, draw_text, draw_text_grad, hexc, mix
 # ---------------------------------------------------------------------------
 # Layout of the device (art pixels)
 # ---------------------------------------------------------------------------
-LEFT_W, PANEL_W, DEX_H = 192, 220, 352
+LEFT_W, PANEL_W, DEX_H = 192, 236, 384
 HINGE_X = 176
 LENS_C, LENS_R = (31, 30), 23
 LEDS = (("r", 68, 12), ("y", 82, 12), ("g", 96, 12))
 BEZEL = (10, 62, 162, 152)          # x, y, w, h of the white screen bezel
 SCREEN = (21, 74, 140, 112)          # the main screen
-LCD_BOX = (10, 220, 162, 58)
-LCD_IN = (14, 224, 154, 50)
-START_C, START_R = (31, 305), 17
-DPAD_XY = (138, 288)
-STATUS = (10, 332, 162, 12)
+LCD_BOX = (10, 226, 162, 58)
+LCD_IN = (14, 230, 154, 50)
+START_C, START_R = (31, 324), 17
+DPAD_XY = (138, 306)
+FACE_XY = ((54, 306), (96, 306), (54, 327), (96, 327))   # SETUP, DEX, LOG, VIEW
+STATUS = (10, 364, 162, 12)
+CYLINDERS = ((66, 72), (150, 100), (262, 104))            # hinge knuckles (y, h)
 
 # right half
-PSCREEN = (12, 52, 196, 196)         # the setup screen
-CONTENT = (20, 74, 180, 172)          # where page widgets go (x, y, w, h)
-KEYS_Y = (258, 277)
-MINIS = ((10, 304, 98, 28), (112, 304, 98, 28))
+PSCREEN = (12, 52, 212, 222)         # the setup screen
+CONTENT = (24, 80, 188, 186)          # where page widgets go (x, y, w, h)
+KEYS_Y = (288, 310)                  # the two rows of page keys
+KEY_X0, KEY_W, KEY_H, KEY_GAP = 10, 40, 18, 4
+MINIS = ((10, 338, 104, 28), (122, 338, 104, 28))
 
 # mini mode
-MINI_W, MINI_H = 184, 64
+MINI_W, MINI_H = 200, 70
 
 
 def bevel_box(b, x, y, w, h, r, outline, hi, face, sh):
@@ -95,7 +98,7 @@ def draw_left_shell():
     hx = HINGE_X
     b.rect(hx, 57, 1, DEX_H - 66, P["outline"])
     b.rect(hx + 1, 57, LEFT_W - hx - 3, DEX_H - 66, P["red_dk"])
-    for y0, hh in ((66, 64), (148, 86), (252, 82)):
+    for y0, hh in CYLINDERS:
         cylinder(b, hx + 1, y0, LEFT_W - hx - 3, hh)
     # big lens: white ring and dark socket (the glass is its own widget)
     cx, cy = LENS_C
@@ -192,9 +195,11 @@ def draw_right_shell():
         b.rect(min(cx, cx + sx * 4), cy, 5, 1, br)
         b.rect(cx, min(cy, cy + sy * 4), 1, 5, br)
     # recess behind the ten keys
-    b.rrect(6, 255, 208, 42, 5, P["red_xd"])
-    b.rrect(7, 256, 206, 40, 4, P["red_dk"])
-    b.rect(10, 295, 200, 1, P["red_md"])
+    ky0, ky1 = KEYS_Y[0] - 5, KEYS_Y[1] + KEY_H + 4
+    kx1 = KEY_X0 + 5 * KEY_W + 4 * KEY_GAP
+    b.rrect(KEY_X0 - 5, ky0, kx1 - KEY_X0 + 10, ky1 - ky0, 5, P["red_xd"])
+    b.rrect(KEY_X0 - 4, ky0 + 1, kx1 - KEY_X0 + 8, ky1 - ky0 - 2, 4, P["red_dk"])
+    b.rect(KEY_X0 - 1, ky1 - 2, kx1 - KEY_X0 + 2, 1, P["red_md"])
     # two mini screens
     for (mx, my, mw, mh) in MINIS:
         b.rrect(mx, my, mw, mh, 4, P["outline"])
@@ -202,22 +207,26 @@ def draw_right_shell():
         b.rect(mx + 2, my + 2, mw - 4, mh - 4, P["night"])
         b.rect(mx + 3, my + 3, mw - 6, mh - 6, P["dark"])
     # details: two pills, a light and screws
+    dy = DEX_H - 13
     for px_ in (14, 38):
-        b.rrect(px_, 339, 20, 7, 3, P["outline"])
-        b.rrect(px_ + 1, 340, 18, 5, 2, P["bezel"])
-        b.rect(px_ + 3, 340, 14, 1, P["white"])
-    b.circle(204, 342, 3, P["outline"])
-    b.circle(204, 342, 2, P["led_y"])
-    b.px(203, 341, P["white"])
-    screw(b, 186, 342)
+        b.rrect(px_, dy, 20, 7, 3, P["outline"])
+        b.rrect(px_ + 1, dy + 1, 18, 5, 2, P["bezel"])
+        b.rect(px_ + 3, dy + 1, 14, 1, P["white"])
+    lx = PANEL_W - 16
+    b.circle(lx, dy + 3, 3, P["outline"])
+    b.circle(lx, dy + 3, 2, P["led_y"])
+    b.px(lx - 1, dy + 2, P["white"])
+    screw(b, lx - 18, dy + 3)
     return b
 
 
 # ---------------------------------------------------------------------------
 # Mini mode
 # ---------------------------------------------------------------------------
-MINI_SCREEN = (8, 8, 48, 48)
-MINI_LCD = (62, 8, 84, 34)
+MINI_SCREEN = (10, 10, 50, 50)
+MINI_LCD = (70, 10, 88, 36)
+MINI_START = (180, 24)               # centre of the round START button
+MINI_BTNS = ((163, 46), (180, 46))   # back-to-device and close
 
 
 def draw_mini_shell():
@@ -233,8 +242,9 @@ def draw_mini_shell():
     sunken_box(b, x - 3, y - 3, w + 6, h + 6, 3, P["outline"], P["lcd"], P["lcd4"], P["red_hi"])
     b.rect(x - 1, y - 1, w + 2, h + 2, P["lcd3"])
     b.rect(x, y, w, h, P["lcd"])
-    b.circle(167, 22, 13, P["red_xd"])
-    b.circle(166, 21, 13, P["outline"])
+    cx, cy = MINI_START
+    b.circle(cx + 1, cy + 1, 14, P["red_xd"])
+    b.circle(cx, cy, 14, P["outline"])
     return b
 
 
@@ -356,6 +366,130 @@ def star_bitmap(size, color, core):
         b.rect(c, c - 4, 1, 9, color)
         b.rect(c - 1, c - 1, 3, 3, color)
         b.px(c, c, core)
+    return b
+
+
+# ---------------------------------------------------------------------------
+# Start-up: the closed lid and the boot screen
+# ---------------------------------------------------------------------------
+def sparkle(b, cx, cy, r, c, core):
+    """A four-point shine star with arms that taper to a point."""
+    for t in range(-r, r + 1):
+        half = max(0, (r - abs(t)) // 4)
+        b.rect(cx - half, cy + t, 2 * half + 1, 1, c)
+        b.rect(cx + t, cy - half, 1, 2 * half + 1, c)
+    b.rect(cx - 1, cy - 1, 3, 3, core)
+
+
+def lid_bitmap():
+    """The closed Pokedex lid that covers the left half at start-up."""
+    P = PAL
+    w, h = HINGE_X, DEX_H
+    b = Bitmap(w, h)
+    shell_body(b, 0, 0, w + 12, h, 12)          # the right side runs into the hinge
+    # groove around the face
+    b.rframe(8, 9, w - 15, h - 18, 9, P["red_xd"])
+    b.rframe(9, 10, w - 15, h - 18, 9, P["red_hi"])
+    # the hinge side sits a little deeper
+    b.rect(w - 5, 3, 3, h - 6, P["red_dk"])
+    b.rect(w - 2, 0, 2, h, P["outline"])
+    # latch on the opening side
+    cy = h // 2
+    b.rrect(0, cy - 20, 6, 40, 2, P["outline"])
+    b.rrect(1, cy - 19, 4, 38, 1, P["gold_dk"])
+    b.rect(2, cy - 16, 1, 32, P["gold"])
+    # emblem: a gold ring with a big shine star
+    ex, ey = (w - 4) // 2, 118
+    b.circle(ex + 1, ey + 2, 34, P["red_xd"])
+    b.circle(ex, ey, 34, P["outline"])
+    b.circle(ex, ey, 33, P["gold_dk"])
+    b.circle(ex - 1, ey - 1, 31, P["gold_hi"])
+    b.circle(ex, ey, 30, P["gold"])
+    b.circle(ex, ey, 27, P["gold_dk"])
+    b.circle(ex, ey, 26, P["outline"])
+    b.circle(ex, ey, 25, P["black_md"])
+    b.circle(ex - 2, ey - 2, 21, hexc("#33333E"))
+    sparkle(b, ex + 1, ey + 2, 19, P["gold_xd"], P["gold_xd"])
+    sparkle(b, ex, ey, 19, P["gold"], P["white"])
+    sparkle(b, ex, ey, 11, P["gold_hi"], P["white"])
+    sparkle(b, ex + 15, ey - 14, 4, P["gold_hi"], P["white"])
+    # name plate
+    logo = logo_bitmap()
+    b.blit(logo, (w - 4 - LOGO_W) // 2, 166)
+    tag = "SHINY HUNTING DEVICE"
+    tx = (w - 4 - TINY.width(tag)) // 2
+    draw_text(b, tx, 199, tag, P["red_hi"], TINY)
+    draw_text(b, tx, 198, tag, P["red_xd"], TINY)
+    # speaker grill and a sleeping power light
+    gx = (w - 4 - 64) // 2
+    for i in range(5):
+        y = h - 78 + i * 7
+        b.rrect(gx, y, 64, 3, 1, P["red_xd"])
+        b.rect(gx + 1, y + 3, 62, 1, P["red_hi"])
+    b.circle(w - 24, 26, 4, P["outline"])
+    b.circle(w - 24, 26, 3, P["led_g_off"])
+    b.px(w - 25, 25, P["led_g"])
+    screw(b, 20, h - 22)
+    screw(b, w - 26, h - 22)
+    return b
+
+
+def squash(bmp, w):
+    """Nearest-neighbour squash to width w (a lid seen swinging on its hinge)."""
+    w = max(1, int(w))
+    src = memoryview(bmp.buf)
+    stride = bmp.w * 4
+    idx = [min(bmp.w - 1, int((i + 0.5) * bmp.w / w)) * 4 for i in range(w)]
+    rows = []
+    for j in range(bmp.h):
+        base = j * stride
+        rows.append(b"".join(src[base + k:base + k + 4] for k in idx))
+    return Bitmap.from_rgba(w, bmp.h, b"".join(rows))
+
+
+def lid_frame(base, k, steps):
+    """Frame k (1..steps) of the lid swinging open: narrower, with the shadow
+    deepening on the hinge side and the lid's edge catching the light."""
+    P = PAL
+    ang = (math.pi / 2) * k / (steps + 1.0)
+    f = squash(base, max(3, int(round(base.w * math.cos(ang)))))
+    shade = 1 + int(round(min(f.w * 0.3, 14) * k / float(steps)))
+    f.dither_level(f.w - 2 - shade, 14, shade, f.h - 28, P["red_xd"], 6 + k)
+    edge = min(f.w - 2, 1 + k)
+    f.rect(0, 14, edge, f.h - 28, P["red_hi"])
+    f.rect(edge, 14, 1, f.h - 28, P["outline"])
+    return f
+
+
+def boot_screen(w, h, version):
+    """The start-up splash on the main screen (the bar is drawn on top)."""
+    P = PAL
+    b = Bitmap(w, h)
+    b.vgrad(0, 0, w, h, [hexc("#122042"), hexc("#0B1220"), hexc("#060A12")])
+    for y in range(1, h, 3):
+        b.rect(0, y, w, 1, hexc("#0D1626"))
+    for (x, y, s) in ((14, 14, 1), (122, 20, 2), (24, 84, 2), (116, 92, 1), (100, 8, 0)):
+        b.blit(star_bitmap(s, P["cyan_dk"], P["cyan"]), x, y)
+    b.blit(logo_bitmap(), (w - LOGO_W) // 2, 28)
+    sub = "SHINY HUNTER"
+    draw_text(b, (w - TINY.width(sub)) // 2, 58, sub, P["cyan"], TINY)
+    b.rframe((w - BOOT_BAR[0]) // 2, 74, BOOT_BAR[0], BOOT_BAR[1], 2, P["cyan_dk"])
+    ver = "V" + version
+    draw_text(b, w - 5 - TINY.width(ver), h - 10, ver, P["dim"], TINY)
+    return b
+
+
+BOOT_BAR = (85, 9)        # loading bar frame on the boot screen (w, h)
+BOOT_SEGS = 10
+
+
+def boot_bar(k):
+    """The loading bar's inside with k of BOOT_SEGS blocks lit."""
+    P = PAL
+    b = Bitmap(BOOT_BAR[0] - 4, BOOT_BAR[1] - 4)
+    seg = b.w // BOOT_SEGS
+    for i in range(k):
+        b.rect(i * seg + 1, 0, seg - 1, b.h, P["white"] if i == k - 1 else P["cyan"])
     return b
 
 

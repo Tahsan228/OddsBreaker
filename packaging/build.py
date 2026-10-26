@@ -25,7 +25,7 @@ sys.path.insert(0, ROOT)
 sys.path.insert(0, HERE)
 
 import make_assets  # noqa: E402
-from oddsbreaker import APP_NAME, AUTHOR, __version__  # noqa: E402
+from oddsbreaker import APP_NAME, AUTHOR, REPO_URL, SITE_URL, __version__  # noqa: E402
 
 BUILD = os.path.join(ROOT, "build")
 DIST = os.path.join(ROOT, "dist")
@@ -61,7 +61,8 @@ portable.txt file. Delete portable.txt to keep them in %APPDATA% instead.
 Windows might say "Windows protected your PC" the first time, because the
 app isn't code-signed. Click "More info" and then "Run anyway".
 
-Guide, help and updates: https://github.com/Tahsan228/ShinyHunt
+Guide and updates: {site}
+Source and help: {repo}
 Made by {author}. MIT License.
 """
 
@@ -124,7 +125,7 @@ def build_package():
     makensis = find_makensis()
     if makensis:
         setup = os.path.join(RELEASE, "%s-%s-Setup.exe" % (APP_NAME, __version__))
-        run([makensis, "-V2", "-DVERSION=%s" % __version__, "-DSRCDIR=%s" % onedir,
+        run([makensis, "-V2", "-DVERSION=%s" % __version__, "-DWEBSITE=%s" % SITE_URL, "-DSRCDIR=%s" % onedir,
              "-DOUTFILE=%s" % setup, "-DASSETS=%s" % ASSETS,
              "-DLICENSEFILE=%s" % os.path.join(ROOT, "LICENSE"),
              os.path.join(ROOT, "packaging", "installer.nsi")])
@@ -142,7 +143,8 @@ def build_package():
         z.write(onefile, top + "/%s.exe" % APP_NAME)
         z.writestr(top + "/portable.txt", "Hunts are saved next to the app because this file exists.\n")
         z.writestr(top + "/README.txt", PORTABLE_README.format(name=APP_NAME, version=__version__,
-                                                               author=AUTHOR))
+                                                               author=AUTHOR, site=SITE_URL,
+                                                               repo=REPO_URL))
         z.write(os.path.join(ROOT, "LICENSE"), top + "/LICENSE.txt")
     out.append(zpath)
     # 4. checksums

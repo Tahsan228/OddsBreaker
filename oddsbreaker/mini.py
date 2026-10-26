@@ -5,10 +5,12 @@ import re
 import tkinter as tk
 
 from . import APP_NAME
-from .art import MINI_H, MINI_LCD, MINI_SCREEN, MINI_W, battle_base, draw_mini_shell, screen_bg
+from .art import (MINI_BTNS, MINI_H, MINI_LCD, MINI_SCREEN, MINI_START, MINI_W, battle_base,
+                  draw_mini_shell, screen_bg)
 from .dexnames import dex_no, poke_display
 from .imaging import Bitmap
 from .pixel import FONT, KEY_COLOR, PAL, TINY, draw_text, ellipsize
+from .sprites import MINI_TARGET
 from .stats import fmt_int, fmt_time, hunt_rate
 from .ui.toolkit import UI, Button, ImageBox, Pic, StartButton, Widget
 
@@ -88,16 +90,18 @@ class MiniWindow(object):
         self.shell = Pic(self.ui, g, 0, 0, draw_mini_shell())
         x, y, w, h = MINI_SCREEN
         Pic(self.ui, g, x, y, screen_bg(w, h, "day"))
-        base = battle_base(40, 8)
-        Pic(self.ui, g, x + (w - 40) // 2, y + h - 11, base)
-        self.sprite = ImageBox(self.ui, g, x, y + 2, w, h - 7, anchor="bottom",
+        base = battle_base(42, 8)
+        Pic(self.ui, g, x + (w - 42) // 2, y + h - 12, base)
+        self.sprite = ImageBox(self.ui, g, x, y + 3, w, h - 8, anchor="bottom",
                                cb=lambda a, b: self.expand(), hint="Back to the full device")
         lx, ly, lw, lh = MINI_LCD
         self.lcd = MiniLCD(self.ui, g, lx, ly, lw, lh)
-        self.start = StartButton(self.ui, g, 166 - 11, 21 - 11, self.app.toggle_hunt,
-                                 "Start / stop hunting", r=11)
-        Button(self.ui, g, 150, 44, 15, 13, "◀", self.expand, "shell", "Back to the full device", TINY)
-        Button(self.ui, g, 167, 44, 15, 13, "×", self.close_app, "shell", "Close " + APP_NAME, TINY)
+        cx, cy = MINI_START
+        self.start = StartButton(self.ui, g, cx - 12, cy - 12, self.app.toggle_hunt,
+                                 "Start / stop hunting", r=12)
+        (bx, by), (cx2, cy2) = MINI_BTNS
+        Button(self.ui, g, bx, by, 15, 14, "◀", self.expand, "shell", "Back to the full device", TINY)
+        Button(self.ui, g, cx2, cy2, 15, 14, "×", self.close_app, "shell", "Close " + APP_NAME, TINY)
         self.hint_text = ""
         self.anim = None
         self.anim_key = None
@@ -183,7 +187,7 @@ class MiniWindow(object):
         if frames:
             fw = max(b.w for b, _d in frames)
             fh = max(b.h for b, _d in frames)
-            self.anim = [(app.fit_photo(b, fw, fh, w - 2, h - 8), d) for b, d in frames]
+            self.anim = [(app.fit_photo(b, fw, fh, w - 2, h - 8, MINI_TARGET), d) for b, d in frames]
             self.anim_i = 0
             self.sprite.set_photo(self.anim[0][0])
         else:
@@ -191,7 +195,7 @@ class MiniWindow(object):
             res = app.sprites.lookup(name) if name else None
             if res:
                 bmp = res[2] if shiny else res[1]
-                self.photo = app.fit_photo(bmp, box_w=w - 2, box_h=h - 8)
+                self.photo = app.fit_photo(bmp, box_w=w - 2, box_h=h - 8, target=MINI_TARGET)
             else:
                 from .art import placeholder_bitmap
                 self.photo = placeholder_bitmap().photo(self.S)

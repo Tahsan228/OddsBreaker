@@ -8,21 +8,25 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Tahsan228/ShinyHunt/releases/latest"><img alt="Download" src="https://img.shields.io/github/v/release/Tahsan228/ShinyHunt?label=download&style=flat-square&color=e3263f"></a>
+  <a href="https://github.com/Tahsan228/OddsBreaker/releases/latest"><img alt="Download" src="https://img.shields.io/github/v/release/Tahsan228/OddsBreaker?label=download&style=flat-square&color=e3263f"></a>
   <img alt="Windows 10 and 11" src="https://img.shields.io/badge/windows-10%20%7C%2011-0078d6?style=flat-square">
-  <a href="https://github.com/Tahsan228/ShinyHunt/actions/workflows/ci.yml"><img alt="Tests" src="https://img.shields.io/github/actions/workflow/status/Tahsan228/ShinyHunt/ci.yml?branch=main&label=tests&style=flat-square"></a>
+  <a href="https://github.com/Tahsan228/OddsBreaker/actions/workflows/ci.yml"><img alt="Tests" src="https://img.shields.io/github/actions/workflow/status/Tahsan228/OddsBreaker/ci.yml?branch=main&label=tests&style=flat-square"></a>
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-2ea44f?style=flat-square"></a>
 </p>
 
 <p align="center">
-  <img src="docs/demo.gif" alt="OddsBreaker hunting a Charmander until a shiny one appears" width="408">
+  <a href="https://tahsan228.github.io/OddsBreaker/"><b>tahsan228.github.io/OddsBreaker</b></a>
+</p>
+
+<p align="center">
+  <img src="docs/demo.gif" alt="OddsBreaker opening up, then hunting a Charmander until a shiny one appears" width="408">
 </p>
 
 Full-odds shiny hunting means thousands of soft resets. OddsBreaker does the button mashing: it resets the game, walks into the battle, checks the Pokémon's colours and keeps count, so you can get on with your day until it calls you back.
 
 ## Download
 
-Get the latest version from the **[Releases page](https://github.com/Tahsan228/ShinyHunt/releases/latest)**.
+Get the latest version from the **[website](https://tahsan228.github.io/OddsBreaker/)** or the **[Releases page](https://github.com/Tahsan228/OddsBreaker/releases/latest)**.
 
 | File | Best for |
 | --- | --- |
@@ -30,7 +34,7 @@ Get the latest version from the **[Releases page](https://github.com/Tahsan228/S
 | `OddsBreaker-<version>.exe` | One file you can run from anywhere. |
 | `OddsBreaker-<version>-Portable.zip` | USB sticks and shared PCs. Your hunts are saved next to the app. |
 
-It runs on Windows 10 and 11 (64-bit) and needs nothing else installed. Once a day it checks for a new version and puts a badge on the **MORE** button when there is one. Install the new version over the old one and your hunts stay where they are.
+It runs on Windows 10 and 11 (64-bit) and needs nothing else installed. Each time it starts it checks for a new version and offers to download it (you can switch that off under **MORE**). Install the new version over the old one and your hunts stay where they are.
 
 > [!NOTE]
 > The first time you run it, Windows may say **"Windows protected your PC"**. That's SmartScreen being careful with an app that isn't code-signed yet. Click **More info**, then **Run anyway**. Every release comes with a `SHA256SUMS.txt` if you want to check your download.
@@ -50,7 +54,7 @@ Then press **START** (or **F8** from anywhere) and let it run. It only presses k
 When an encounter looks shiny it stops, saves a screenshot, plays a jingle, jumps to the front and sends your alerts. Then you tell it what happened: **CAUGHT!** finishes the hunt, **PHASE** logs a shiny you weren't after and keeps going, and **NOT SHINY** carries on after a false alarm.
 
 <p align="center">
-  <img src="docs/screens/hero.png" alt="The Pokédex with the stats page open during a hunt" width="824">
+  <img src="docs/screens/hero.png" alt="The Pokédex with the stats page open during a hunt" width="856">
 </p>
 
 ## What's inside
@@ -73,10 +77,10 @@ When an encounter looks shiny it stops, saves a screenshot, plays a jingle, jump
   <img src="docs/screens/themes.png" alt="The eight shell colours" width="804">
 </p>
 
-Pick the shell colour, the window size (1x to 4x), the sounds and how much animation you want under **MORE**. Effects go down to LITE or OFF for slower PCs. Mini mode, the small button in the top corner, swaps the Pokédex for a little counter you can park anywhere:
+Pick the shell colour, the window size (1x to 4x), the sounds and how much animation you want under **MORE**. Effects go down to LITE or OFF for slower PCs, and OFF also skips the start-up animation (a click skips it any time). Mini mode, the small button in the top corner, swaps the Pokédex for a little counter you can park anywhere:
 
 <p align="center">
-  <img src="docs/screens/mini.png" alt="Mini mode" width="368">
+  <img src="docs/screens/mini.png" alt="Mini mode" width="400">
 </p>
 
 ## Hotkeys
@@ -123,15 +127,15 @@ The portable version keeps all of this in an `OddsBreaker_data` folder next to t
 
 **My antivirus complains.** Apps built with PyInstaller get flagged by mistake now and then. Only download from the Releases page and compare the checksum in `SHA256SUMS.txt`, or run it from source.
 
-Still stuck? [Open an issue](https://github.com/Tahsan228/ShinyHunt/issues/new/choose) and attach `logs\oddsbreaker.log` from the data folder.
+Still stuck? [Open an issue](https://github.com/Tahsan228/OddsBreaker/issues/new/choose) and attach `logs\oddsbreaker.log` from the data folder.
 
 ## Run or build it from source
 
 You need Python 3.9 or newer from [python.org](https://www.python.org/downloads/) (it comes with Tkinter). The app only uses the standard library.
 
 ```bash
-git clone https://github.com/Tahsan228/ShinyHunt.git
-cd ShinyHunt
+git clone https://github.com/Tahsan228/OddsBreaker.git
+cd OddsBreaker
 python OddsBreaker.pyw
 ```
 
@@ -148,6 +152,8 @@ python packaging/build.py --package     # installer, portable zip and checksums 
 ```
 
 Releases build themselves. Bump `__version__` in `oddsbreaker/__init__.py` and add a section to [CHANGELOG.md](CHANGELOG.md), then open **Actions > Release > Run workflow** and tick **Publish** (pushing a tag like `v1.0.1` works too). GitHub Actions runs the tests, builds the app, self-tests the .exe on Windows and publishes the release with all three downloads. The pictures in this README come from `tools/screenshots.py`.
+
+The download site lives in `site/`. The **Website** workflow publishes it to GitHub Pages whenever it changes, once Pages is switched on (**Settings > Pages > Source: GitHub Actions**). It reads the newest release from GitHub, so a new version shows up there without touching the page.
 
 ## Credits
 

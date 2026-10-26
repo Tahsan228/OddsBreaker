@@ -8,9 +8,9 @@ import threading
 import urllib.request
 import uuid
 
-from . import APP_NAME, LATEST_API, __version__, paths
+from . import APP_NAME, LATEST_API, REPO, __version__, paths
 
-AVATAR_URL = "https://raw.githubusercontent.com/Tahsan228/ShinyHunt/main/assets/icon-256.png"
+AVATAR_URL = "https://raw.githubusercontent.com/%s/main/assets/icon-256.png" % REPO
 
 
 def _ascii(s):
